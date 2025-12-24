@@ -272,4 +272,5 @@ cython_debug/
 data/
 .idea/misc.xml
 .idea/copilot.data.migration.agent.xml
-mod_checker.db test.db
+*.db
+.docker_tmp

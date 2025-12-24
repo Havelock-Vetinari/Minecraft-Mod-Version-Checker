@@ -1,9 +1,13 @@
 import pytest
 from fastapi.testclient import TestClient
 from unittest.mock import patch, MagicMock, AsyncMock
-from app import app, get_db, Base, engine
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
+
+# Update imports to point to new structure
+from app.main import app
+from app.core.database import Base, get_db
+from app.services.modrinth import get_latest_minecraft_version, get_mod_compatible_versions
 
 # Setup test database
 SQLALCHEMY_DATABASE_URL = "sqlite:///./test.db"
@@ -44,7 +48,7 @@ async def test_get_latest_minecraft_version():
         mock_response.raise_for_status.return_value = None
         mock_instance.get.return_value = mock_response
 
-        from app import get_latest_minecraft_version
+        # Correct import path for function call
         version = await get_latest_minecraft_version()
         assert version == "1.20.4"
 
@@ -71,7 +75,6 @@ async def test_get_mod_compatible_versions():
         # First call is project check, second is versions
         mock_instance.get.side_effect = [mock_project_response, mock_versions_response]
 
-        from app import get_mod_compatible_versions
         versions, error = await get_mod_compatible_versions("test-mod", "fabric")
         
         assert error is None
