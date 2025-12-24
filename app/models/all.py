@@ -6,6 +6,9 @@ class MCVersion(Base):
     __tablename__ = "mc_versions"
     id = Column(Integer, primary_key=True)
     version = Column(String, unique=True)
+    type = Column(String)  # release, snapshot
+    url = Column(String)
+    release_time = Column(DateTime)
     is_current = Column(Boolean, default=False)
     created_at = Column(DateTime, default=datetime.utcnow)
 

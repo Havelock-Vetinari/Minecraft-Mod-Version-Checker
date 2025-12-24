@@ -35,7 +35,12 @@ def add_version(data: VersionSchema, db: Session = Depends(get_db)):
     if data.is_current:
         db.query(MCVersion).update({MCVersion.is_current: False})
 
-    version = MCVersion(version=data.version, is_current=data.is_current)
+    version = MCVersion(
+        version=data.version,
+        type=data.type,
+        release_time=data.release_time,
+        is_current=data.is_current
+    )
     db.add(version)
     db.commit()
     db.refresh(version)

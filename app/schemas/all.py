@@ -4,6 +4,8 @@ from datetime import datetime
 
 class VersionSchema(BaseModel):
     version: str
+    type: Optional[str] = "release"
+    release_time: Optional[datetime] = None
     is_current: bool = False
 
 
@@ -17,6 +19,8 @@ class ModSchema(BaseModel):
 class VersionResponse(BaseModel):
     id: int
     version: str
+    type: Optional[str] = None
+    release_time: Optional[datetime] = None
     is_current: bool
 
 
