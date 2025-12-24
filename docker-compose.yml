@@ -1,0 +1,12 @@
+version: '3.8'
+
+services:
+  mods-checker:
+    build: .
+    ports:
+      - "8000:8000"
+    environment:
+      - DATABASE_URL=sqlite:///./data/mod_checker.db
+    volumes:
+      - ./data:/app/data
+    restart: unless-stopped

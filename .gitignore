@@ -269,3 +269,7 @@ cython_debug/
 #  option (not recommended) you can uncomment the following to ignore the entire idea folder.
 #.idea/
 
+data/
+.idea/misc.xml
+.idea/copilot.data.migration.agent.xml
+mod_checker.db test.db
