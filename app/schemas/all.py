@@ -9,7 +9,7 @@ class VersionSchema(BaseModel):
 
 class ModSchema(BaseModel):
     slug: str
-    mc_version: str
+    mc_version: Optional[str] = None
     loader: str
     side: str
 
@@ -23,7 +23,7 @@ class VersionResponse(BaseModel):
 class ModResponse(BaseModel):
     id: int
     slug: str
-    mc_version: str
+    mc_version: Optional[str] = None
     loader: str
     side: str
 

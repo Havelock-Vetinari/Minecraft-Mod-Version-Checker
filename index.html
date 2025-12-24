@@ -796,10 +796,12 @@
                 return;
             }
 
+            /*
             if (!currentVersion) {
                 showToast('Please set a current Minecraft version first', 'error');
                 return;
             }
+            */
 
             try {
                 const res = await fetch(`${API_BASE}/mods`, {

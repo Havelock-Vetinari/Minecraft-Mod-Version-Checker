@@ -15,7 +15,7 @@ RUN mkdir -p /app/data /app/static
 # Copy app
 # Copy app
 COPY app ./app
-COPY index.html /app/static/
+COPY index.html .
 
 EXPOSE 8000
 

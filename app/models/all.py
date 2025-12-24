@@ -14,7 +14,7 @@ class Mod(Base):
     __tablename__ = "mods"
     id = Column(Integer, primary_key=True)
     slug = Column(String)
-    mc_version = Column(String)  # Version mod was added for
+    mc_version = Column(String, nullable=True)  # Version mod was added for
     loader = Column(String)
     side = Column(String)  # client, server, both
     created_at = Column(DateTime, default=datetime.utcnow)

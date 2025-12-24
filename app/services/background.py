@@ -3,10 +3,10 @@ import logging
 from datetime import datetime
 from sqlalchemy.orm import Session
 from app.core.database import SessionLocal
-from app.models.all import Mod, CompatibilityResult, LogEntry
-from app.services.modrinth import get_latest_minecraft_version, get_mod_compatible_versions
+from app.models.all import Mod, CompatibilityResult, LogEntry, MCVersion
+from app.services.modrinth import get_mod_compatible_versions
 
-logging.basicConfig(level=logging.INFO)
+import logging
 logger = logging.getLogger(__name__)
 
 
@@ -18,12 +18,19 @@ def add_log(db: Session, level: str, message: str):
 
 
 async def check_all_mods():
-    """Background job to check mod compatibility against latest MC version"""
+    """Background job to check mod compatibility against current MC version"""
     db = SessionLocal()
 
     try:
-        latest_version = await get_latest_minecraft_version()
-        add_log(db, "INFO", f"Starting compatibility check against MC {latest_version}")
+        # Get current version from DB
+        current_version_obj = db.query(MCVersion).filter(MCVersion.is_current == True).first()
+        
+        if not current_version_obj:
+            add_log(db, "INFO", "No current Minecraft version set. Skipping compatibility checks.")
+            return
+
+        target_version = current_version_obj.version
+        add_log(db, "INFO", f"Starting compatibility check against MC {target_version}")
 
         mods = db.query(Mod).all()
 
@@ -39,12 +46,12 @@ async def check_all_mods():
                 status = "error"
                 add_log(db, "ERROR", f"Failed to check {mod.slug}: {error}")
             else:
-                status = "compatible" if latest_version in compatible_versions else "incompatible"
+                status = "compatible" if target_version in compatible_versions else "incompatible"
                 add_log(db, "INFO", f"{mod.slug}: {status}")
 
             result = CompatibilityResult(
                 mod_slug=mod.slug,
-                mc_version=latest_version,
+                mc_version=target_version,
                 loader=mod.loader,
                 status=status,
                 compatible_versions=compatible_versions,
