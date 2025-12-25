@@ -1074,20 +1074,37 @@
             document.getElementById('compatCount').innerHTML = `${compatible} / ${total}`;
 
             // Fetch summaries for badges
-            if (currentVersion) {
+            const updateBadge = async (version, elementId) => {
+                if (!version) return;
                 try {
-                    const res = await fetch(`${API_BASE}/results/summary?mc_version=${currentVersion}`);
+                    const res = await fetch(`${API_BASE}/results/summary?mc_version=${version}`);
                     const data = await res.json();
-                    document.getElementById('currentVersionSummary').innerHTML = `${data.compatible} / ${data.total} compatible`;
-                } catch (e) { }
-            }
-            if (latestOfficialVersion) {
-                try {
-                    const res = await fetch(`${API_BASE}/results/summary?mc_version=${latestOfficialVersion}`);
-                    const data = await res.json();
-                    document.getElementById('latestOfficialSummary').innerHTML = `${data.compatible} / ${data.total} compatible`;
-                } catch (e) { }
-            }
+
+                    let emoji = '';
+                    let color = 'inherit';
+
+                    if (data.total > 0) {
+                        if (data.compatible === data.total) {
+                            emoji = ' ✅';
+                            color = 'var(--success)';
+                        } else {
+                            emoji = ' ❌';
+                            color = 'var(--error)';
+                        }
+                    } else if (mods.length > 0) {
+                        emoji = ' ⏳'; // Pending checks for this version
+                    }
+
+                    const el = document.getElementById(elementId);
+                    el.innerHTML = `${data.compatible} / ${data.total} compatible${emoji}`;
+                    el.style.color = color;
+                } catch (e) {
+                    console.error('Failed to update badge stats', e);
+                }
+            };
+
+            await updateBadge(currentVersion, 'currentVersionSummary');
+            await updateBadge(latestOfficialVersion, 'latestOfficialSummary');
         }
 
         function switchPanel(panel) {
