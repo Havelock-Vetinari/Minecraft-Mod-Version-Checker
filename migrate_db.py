@@ -26,7 +26,16 @@ def migrate():
             
         if "release_time" not in columns:
             print("Adding 'release_time' column...")
+            print("Adding 'release_time' column...")
             cursor.execute("ALTER TABLE mc_versions ADD COLUMN release_time DATETIME")
+
+        # Check compatibility_results for mod_version_id
+        cursor.execute("PRAGMA table_info(compatibility_results)")
+        res_columns = [row[1] for row in cursor.fetchall()]
+
+        if "mod_version_id" not in res_columns:
+            print("Adding 'mod_version_id' column...")
+            cursor.execute("ALTER TABLE compatibility_results ADD COLUMN mod_version_id VARCHAR")
             
         conn.commit()
         print("Migration complete.")

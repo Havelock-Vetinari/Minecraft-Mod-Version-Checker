@@ -76,3 +76,47 @@ async def get_mod_compatible_versions(slug: str, loader: str) -> Tuple[List[str]
         error_msg = str(e)
         logger.error(f"Failed to check mod {slug}: {error_msg}")
         return [], error_msg
+
+
+async def find_mod_version_for_mc(slug: str, loader: str, mc_version: str) -> Optional[str]:
+    """
+    Find the specific mod version ID compatible with a given Minecraft version and loader.
+    Returns the version ID or None if not found.
+    """
+    try:
+        async with httpx.AsyncClient(timeout=10) as client:
+            headers = {"User-Agent": USER_AGENT}
+            versions_url = f"{MODRINTH_BASE}/project/{slug}/version"
+            
+            # The API allows filtering by loaders and game_versions directly in parameters
+            # formatting: loaders=["fabric"]&game_versions=["1.21.1"]
+            # But query params need properly JSON encoded arrays
+            params = {
+                "loaders": f'["{loader}"]',
+                "game_versions": f'["{mc_version}"]'
+            }
+            
+            response = await client.get(versions_url, params=params, headers=headers, timeout=10)
+            response.raise_for_status()
+            
+            versions = response.json()
+            if not isinstance(versions, list):
+                versions = [versions]
+            
+            # Filter for release/stable versions
+            releases = [v for v in versions if v.get("version_type") == "release"]
+            
+            if releases:
+                # API returns sorted by date desc by default, but to be sure sort again
+                releases.sort(key=lambda x: x.get("date_published", ""), reverse=True)
+                return releases[0]["id"]
+            
+            # Fallback to any version if no release found (e.g. beta)
+            if versions:
+                return versions[0]["id"]
+                
+            return None
+            
+    except Exception as e:
+        logger.error(f"Failed to find version for {slug} on MC {mc_version}: {e}")
+        return None

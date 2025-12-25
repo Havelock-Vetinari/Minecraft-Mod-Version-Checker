@@ -46,3 +46,16 @@ async def get_latest_stable_version() -> Optional[Dict[str, Any]]:
             v["release_dt"] = parse_time(v["releaseTime"])
             return v
     return None
+
+
+async def get_version_details(version_id: str) -> Optional[Dict[str, Any]]:
+    """Get details for a specific version from the manifest"""
+    manifest = await fetch_version_manifest()
+    versions = manifest.get("versions", [])
+    
+    for v in versions:
+        if v["id"] == version_id:
+            v["release_dt"] = parse_time(v["releaseTime"])
+            return v
+    return None
+

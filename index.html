@@ -525,6 +525,7 @@
                 <div class="status-content">
                     <h3>Current MC Version</h3>
                     <p id="currentVersion">Not Set</p>
+                    <p id="currentVersionSummary" style="font-size: 11px; opacity: 0.8; margin-top: 2px;"></p>
                 </div>
             </div>
             <div class="status-card">
@@ -532,6 +533,7 @@
                 <div class="status-content">
                     <h3>Latest Official</h3>
                     <p id="latestOfficialVersion">Checking...</p>
+                    <p id="latestOfficialSummary" style="font-size: 11px; opacity: 0.8; margin-top: 2px;"></p>
                 </div>
             </div>
             <div class="status-card">
@@ -641,9 +643,15 @@
                 </div>
 
                 <div id="results" class="tab-content active">
-                    <div class="version-info-box">
-                        <div class="version-info-label">Target Minecraft Version</div>
-                        <div class="version-info-value" id="targetVersion">Not Set</div>
+                    <div class="version-info-box"
+                        style="display: flex; justify-content: space-between; align-items: flex-end; gap: 15px;">
+                        <div style="flex: 1;">
+                            <div class="version-info-label">Filter by Minecraft Version</div>
+                            <select id="resultVersionFilter" onchange="fetchResults()"
+                                style="background: var(--bg-dark); border: 1px solid var(--border); border-radius: 4px; padding: 6px 10px; color: var(--text-primary); font-size: 13px; width: 100%;">
+                                <option value="">All Versions</option>
+                            </select>
+                        </div>
                     </div>
 
                     <div id="resultsContainer">
@@ -671,6 +679,7 @@
         let results = [];
         let logs = [];
         let currentVersion = null;
+        let latestOfficialVersion = null;
 
         async function loadInitialData() {
             try {
@@ -689,8 +698,16 @@
 
                 const latestOfficial = versions.find(v => v.type === 'release');
                 if (latestOfficial) {
-                    document.getElementById('latestOfficialVersion').innerHTML = latestOfficial.version;
+                    latestOfficialVersion = latestOfficial.version;
+                    document.getElementById('latestOfficialVersion').innerHTML = latestOfficialVersion;
                 }
+
+                // Populate filter dropdown
+                const filterSelect = document.getElementById('resultVersionFilter');
+                const currentFilter = filterSelect.value;
+                filterSelect.innerHTML = '<option value="">All Versions</option>' +
+                    versions.map(v => `<option value="${v.version}">${v.version}${v.is_current ? ' (Current)' : ''}</option>`).join('');
+                filterSelect.value = currentFilter;
 
                 // Load current version
                 const currentRes = await fetch(`${API_BASE}/versions/current`);
@@ -698,7 +715,11 @@
                 currentVersion = currentData.version;
 
                 renderVersions();
-                document.getElementById('currentVersion').innerHTML = currentVersion || 'Not Set';
+                if (!currentVersion) {
+                    document.getElementById('currentVersion').innerHTML = 'Not Set';
+                } else {
+                    document.getElementById('currentVersion').innerHTML = currentVersion;
+                }
 
                 // Load mods
                 const modsRes = await fetch(`${API_BASE}/mods`);
@@ -706,9 +727,9 @@
                 renderMods();
 
                 // Load results
-                const resultsRes = await fetch(`${API_BASE}/results`);
-                results = await resultsRes.json();
-                renderResults();
+                await fetchResults();
+
+                // Load logs
 
                 // Load logs
                 const logsRes = await fetch(`${API_BASE}/logs`);
@@ -792,63 +813,92 @@
             `).join('');
         }
 
+        async function fetchResults() {
+            try {
+                const mcFilter = document.getElementById('resultVersionFilter').value;
+                const url = new URL(`${window.location.origin}${API_BASE}/results`);
+                if (mcFilter) url.searchParams.append('mc_version', mcFilter);
+
+                const res = await fetch(url);
+                results = await res.json();
+                renderResults();
+            } catch (error) {
+                console.error('Failed to fetch results', error);
+            }
+        }
+
         function renderResults() {
             const container = document.getElementById('resultsContainer');
-            if (mods.length === 0) {
+            if (results.length === 0) {
                 container.innerHTML = `
                     <div class="empty-state">
                         <div class="empty-state-icon">🔍</div>
-                        <p>Add mods to see compatibility results</p>
+                        <p>No compatibility results found for selected filters.</p>
                     </div>`;
                 return;
             }
 
-            // Group results by Mod Slug
+            // Since backend returns sorted results (Mod name ASC, MC Newest DESC)
+            // We can just render them. However, we might want to group by mod to keep the previous UI style.
+
             const resultsByMod = {};
-            mods.forEach(m => {
-                resultsByMod[m.slug] = results.filter(r => r.mod_slug === m.slug)
-                    .sort((a, b) => new Date(b.checked_at) - new Date(a.checked_at));
+            const modOrder = []; // To keep deterministic order from backend
+
+            results.forEach(r => {
+                if (!resultsByMod[r.mod_slug]) {
+                    resultsByMod[r.mod_slug] = [];
+                    modOrder.push(r.mod_slug);
+                }
+                resultsByMod[r.mod_slug].push(r);
             });
 
             let html = '';
 
-            for (const mod of mods) {
-                const modResults = resultsByMod[mod.slug] || [];
-                // Get unique MC versions checked for this mod (latest check per version)
+            for (const modSlug of modOrder) {
+                const modResults = resultsByMod[modSlug];
+                // Within each mod, backend already sorted by MC release time
+
+                // Get most recent check for each MC version to avoid duplicates in display
                 const uniqueChecks = {};
                 modResults.forEach(r => {
                     if (!uniqueChecks[r.mc_version]) uniqueChecks[r.mc_version] = r;
                 });
 
-                // Sort check versions (e.g. 1.21.4 > 1.21.3)
-                const sortedVersions = Object.keys(uniqueChecks).sort().reverse();
+                // Keep the order of versions as they appeared from backend
+                const versionsShown = [];
+                modResults.forEach(r => {
+                    if (!versionsShown.includes(r.mc_version)) versionsShown.push(r.mc_version);
+                });
 
                 html += `
                     <div class="compatibility-result">
                         <div class="result-header">
-                            <span class="result-name">${mod.slug} (${mod.loader})</span>
+                            <span class="result-name">${modSlug}</span>
                         </div>
                         <div class="separator" style="margin: 8px 0;"></div>
                  `;
 
-                if (sortedVersions.length === 0) {
-                    html += `<div class="result-details">No checks performed yet.</div>`;
-                } else {
-                    sortedVersions.forEach(ver => {
-                        const r = uniqueChecks[ver];
-                        let badgeClass = 'badge-warning';
-                        if (r.status === 'compatible') badgeClass = 'badge-success';
-                        if (r.status === 'incompatible') badgeClass = 'badge-error';
+                versionsShown.forEach(ver => {
+                    const r = uniqueChecks[ver];
+                    let badgeClass = 'badge-warning';
+                    if (r.status === 'compatible') badgeClass = 'badge-success';
+                    if (r.status === 'incompatible') badgeClass = 'badge-error';
 
-                        html += `
-                            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
-                                <span style="font-weight: 500; font-size: 13px;">MC ${ver}</span>
-                                <span class="badge ${badgeClass}">${r.status}</span>
+                    let statusText = r.status === 'compatible' ? '✓ Compatible' :
+                        r.status === 'incompatible' ? '✗ Incompatible' : '⚠️ Error';
+
+                    html += `
+                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
+                            <div style="font-size: 13px;">
+                                <span style="font-weight: 600;">MC ${ver}</span>
+                                <span style="color: var(--text-secondary); font-size: 11px; margin-left: 8px;">(${r.loader})</span>
                             </div>
-                            ${r.error ? `<div class="result-details" style="color:var(--error)">${r.error}</div>` : ''}
-                         `;
-                    });
-                }
+                            <span class="badge ${badgeClass}">${statusText}</span>
+                        </div>
+                        ${r.mod_version_id ? `<div style="font-size: 11px; color: var(--text-secondary); margin-bottom: 4px;">Mod Version: ${r.mod_version_id}</div>` : ''}
+                        ${r.error ? `<div class="result-details" style="color:var(--error)">${r.error}</div>` : ''}
+                     `;
+                });
                 html += `</div>`;
             }
 
@@ -990,7 +1040,7 @@
                         </div>
                         <div class="result-details">
                             <strong>Version:</strong> ${result.mc_version} • <strong>Loader:</strong> ${result.loader.toUpperCase()}<br>
-                            <strong>Compatible Versions:</strong> ${result.compatible_versions.join(', ') || 'None'}<br>
+                            ${result.mod_version_id ? `<strong>Mod Version ID:</strong> <span style="font-family: monospace; background: rgba(0,0,0,0.2); padding: 2px 4px; border-radius: 4px;">${result.mod_version_id}</span><br>` : ''}
                             <strong>Checked:</strong> ${formatDate(result.checked_at)}
                             ${result.error ? `<br><strong style="color: var(--error);">Error:</strong> ${result.error}` : ''}
                         </div>
@@ -1016,12 +1066,28 @@
             container.scrollTop = container.scrollHeight;
         }
 
-        function updateStats() {
+        async function updateStats() {
             document.getElementById('modsCount').innerHTML = mods.length;
 
             const compatible = results.filter(r => r.status === 'compatible').length;
             const total = new Set(results.map(r => `${r.mod_slug}-${r.mc_version}-${r.loader}`)).size;
             document.getElementById('compatCount').innerHTML = `${compatible} / ${total}`;
+
+            // Fetch summaries for badges
+            if (currentVersion) {
+                try {
+                    const res = await fetch(`${API_BASE}/results/summary?mc_version=${currentVersion}`);
+                    const data = await res.json();
+                    document.getElementById('currentVersionSummary').innerHTML = `${data.compatible} / ${data.total} compatible`;
+                } catch (e) { }
+            }
+            if (latestOfficialVersion) {
+                try {
+                    const res = await fetch(`${API_BASE}/results/summary?mc_version=${latestOfficialVersion}`);
+                    const data = await res.json();
+                    document.getElementById('latestOfficialSummary').innerHTML = `${data.compatible} / ${data.total} compatible`;
+                } catch (e) { }
+            }
         }
 
         function switchPanel(panel) {

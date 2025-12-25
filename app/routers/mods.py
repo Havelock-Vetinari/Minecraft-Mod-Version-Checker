@@ -1,10 +1,11 @@
-from fastapi import APIRouter, HTTPException, Depends
+from fastapi import APIRouter, HTTPException, Depends, BackgroundTasks
 from sqlalchemy.orm import Session
 from typing import List
 
 from app.core.database import get_db
 from app.models.all import Mod, LogEntry
 from app.schemas.all import ModResponse, ModSchema
+from app.services.background import check_single_mod_task
 
 router = APIRouter(
     prefix="/api/mods",
@@ -23,7 +24,7 @@ def get_mods(db: Session = Depends(get_db)):
     return mods
 
 @router.post("", response_model=ModResponse)
-def add_mod(data: ModSchema, db: Session = Depends(get_db)):
+def add_mod(data: ModSchema, background_tasks: BackgroundTasks, db: Session = Depends(get_db)):
     """Add a new mod to track"""
     mod = Mod(slug=data.slug, mc_version=data.mc_version, loader=data.loader, side=data.side)
     db.add(mod)
@@ -31,6 +32,10 @@ def add_mod(data: ModSchema, db: Session = Depends(get_db)):
     db.refresh(mod)
 
     add_log(db, "INFO", f"Mod {data.slug} ({data.loader}) added for tracking")
+    
+    # Trigger background check
+    background_tasks.add_task(check_single_mod_task, mod.id)
+    
     return mod
 
 @router.delete("/{mod_id}")

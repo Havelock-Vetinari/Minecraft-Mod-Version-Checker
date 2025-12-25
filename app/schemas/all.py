@@ -39,6 +39,7 @@ class ResultResponse(BaseModel):
     loader: str
     status: str
     compatible_versions: List[str]
+    mod_version_id: Optional[str] = None
     error: Optional[str]
     checked_at: datetime
 
@@ -48,3 +49,8 @@ class LogResponse(BaseModel):
     level: str
     message: str
     created_at: datetime
+
+
+class SummaryResponse(BaseModel):
+    compatible: int
+    total: int

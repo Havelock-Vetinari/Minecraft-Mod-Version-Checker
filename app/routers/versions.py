@@ -1,10 +1,11 @@
-from fastapi import APIRouter, HTTPException, Depends
+from fastapi import APIRouter, HTTPException, Depends, BackgroundTasks
 from sqlalchemy.orm import Session
 from typing import List
 
 from app.core.database import get_db
 from app.models.all import MCVersion, LogEntry
 from app.schemas.all import VersionResponse, VersionSchema
+from app.services.background import enrich_and_check_version_task
 
 router = APIRouter(
     prefix="/api/versions",
@@ -29,7 +30,7 @@ def get_current_version(db: Session = Depends(get_db)):
     return {"version": current.version if current else None}
 
 @router.post("", response_model=VersionResponse)
-def add_version(data: VersionSchema, db: Session = Depends(get_db)):
+def add_version(data: VersionSchema, background_tasks: BackgroundTasks, db: Session = Depends(get_db)):
     """Add a new Minecraft version"""
     # If setting as current, unset other current versions
     if data.is_current:
@@ -46,6 +47,10 @@ def add_version(data: VersionSchema, db: Session = Depends(get_db)):
     db.refresh(version)
 
     add_log(db, "INFO", f"Version {data.version} added" + (" (set as current)" if data.is_current else ""))
+    
+    # Schedule background enrichment and check
+    background_tasks.add_task(enrich_and_check_version_task, data.version)
+    
     return version
 
 @router.put("/{version_id}/set-current")
