@@ -198,17 +198,23 @@ function normalizeModName(name) {
 function findMod(modName) {
     const normalized = normalizeModName(modName);
     
-    // Direct match
+    // Direct match - O(1) lookup
     if (modsDatabase[normalized]) {
         return modsDatabase[normalized];
     }
     
-    // Partial match
+    // Partial match - optimized to check mod name first before doing contains
     for (const [key, mod] of Object.entries(modsDatabase)) {
-        if (key.includes(normalized) || normalized.includes(key)) {
+        // Check if the search term matches the key exactly or is contained in it
+        if (key === normalized) {
             return mod;
         }
-        if (mod.name.toLowerCase().includes(normalized)) {
+    }
+    
+    // Check for partial matches in keys and full names
+    for (const [key, mod] of Object.entries(modsDatabase)) {
+        if (key.includes(normalized) || normalized.includes(key) || 
+            mod.name.toLowerCase().includes(normalized)) {
             return mod;
         }
     }
