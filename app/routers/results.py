@@ -4,7 +4,7 @@ from typing import List, Optional
 from sqlalchemy import func
 
 from app.core.database import get_db
-from app.models.all import CompatibilityResult, LogEntry, MCVersion
+from app.models.all import CompatibilityResult, LogEntry, MCVersion, Mod
 from app.schemas.all import ResultResponse, LogResponse, SummaryResponse
 
 router = APIRouter(
@@ -19,6 +19,8 @@ def get_results(
     """Get compatibility check results with filtering and sorting"""
     query = db.query(CompatibilityResult).join(
         MCVersion, CompatibilityResult.mc_version == MCVersion.version, isouter=True
+    ).join(
+        Mod, (CompatibilityResult.mod_slug == Mod.slug) & (CompatibilityResult.loader == Mod.loader)
     )
     
     if mc_version:
@@ -58,6 +60,8 @@ def get_summary(mc_version: str, db: Session = Depends(get_db)):
         (CompatibilityResult.mod_slug == subq.c.mod_slug) & 
         (CompatibilityResult.loader == subq.c.loader) & 
         (CompatibilityResult.checked_at == subq.c.max_checked)
+    ).join(
+        Mod, (CompatibilityResult.mod_slug == Mod.slug) & (CompatibilityResult.loader == Mod.loader)
     ).all()
     
     compatible = sum(1 for r in latest_results if r.status == "compatible")

@@ -10,3 +10,4 @@ packaging
 httpx
 pytest
 pytest-asyncio
+PyYAML

@@ -12,13 +12,14 @@ async def fetch_version_manifest() -> Dict[str, Any]:
         return response.json()
 
 def parse_time(time_str: str) -> datetime:
-    """Parse Mojang time string (ISO 8601)"""
+    """Parse Mojang time string (ISO 8601) and return naive datetime"""
     # Example: "2023-12-05T10:00:00+00:00"
     try:
-        return datetime.fromisoformat(time_str)
+        dt = datetime.fromisoformat(time_str)
+        return dt.replace(tzinfo=None)
     except ValueError:
-        # Fallback for slight variations if needed, though fromisoformat usually handles standard ISO
-        return datetime.now()
+        # Fallback
+        return datetime.utcnow()
 
 async def get_all_versions() -> List[Dict[str, Any]]:
     """
