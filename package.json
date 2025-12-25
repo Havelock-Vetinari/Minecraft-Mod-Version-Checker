@@ -1,0 +1,19 @@
+{
+  "name": "minecraft-mod-version-checker",
+  "version": "1.0.0",
+  "description": "A web application for checking Minecraft mods version compatibility",
+  "main": "index.html",
+  "scripts": {
+    "start": "python3 -m http.server 8000",
+    "serve": "python3 -m http.server 8000"
+  },
+  "keywords": [
+    "minecraft",
+    "mods",
+    "version",
+    "compatibility",
+    "checker"
+  ],
+  "author": "",
+  "license": "MIT"
+}

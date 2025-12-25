@@ -1,0 +1,109 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Minecraft Mod Version Checker</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>🎮 Minecraft Mod Version Checker</h1>
+            <p class="subtitle">Check if your mods are compatible with your Minecraft version</p>
+        </header>
+
+        <main>
+            <div class="input-section">
+                <div class="form-group">
+                    <label for="minecraft-version">Minecraft Version:</label>
+                    <select id="minecraft-version" class="input-field">
+                        <option value="">Select Version</option>
+                        <option value="1.20.4">1.20.4</option>
+                        <option value="1.20.3">1.20.3</option>
+                        <option value="1.20.2">1.20.2</option>
+                        <option value="1.20.1">1.20.1</option>
+                        <option value="1.20">1.20</option>
+                        <option value="1.19.4">1.19.4</option>
+                        <option value="1.19.3">1.19.3</option>
+                        <option value="1.19.2">1.19.2</option>
+                        <option value="1.19.1">1.19.1</option>
+                        <option value="1.19">1.19</option>
+                        <option value="1.18.2">1.18.2</option>
+                        <option value="1.18.1">1.18.1</option>
+                        <option value="1.18">1.18</option>
+                        <option value="1.17.1">1.17.1</option>
+                        <option value="1.17">1.17</option>
+                        <option value="1.16.5">1.16.5</option>
+                        <option value="1.16.4">1.16.4</option>
+                        <option value="1.16.3">1.16.3</option>
+                        <option value="1.16.2">1.16.2</option>
+                        <option value="1.16.1">1.16.1</option>
+                        <option value="1.12.2">1.12.2</option>
+                    </select>
+                </div>
+
+                <div class="form-group">
+                    <label for="mod-loader">Mod Loader:</label>
+                    <select id="mod-loader" class="input-field">
+                        <option value="">Select Mod Loader</option>
+                        <option value="forge">Forge</option>
+                        <option value="fabric">Fabric</option>
+                        <option value="quilt">Quilt</option>
+                        <option value="neoforge">NeoForge</option>
+                    </select>
+                </div>
+
+                <div class="form-group">
+                    <label for="mod-name">Mod Name or ID:</label>
+                    <input type="text" id="mod-name" class="input-field" placeholder="Enter mod name (e.g., JEI, Optifine)">
+                </div>
+
+                <button id="check-button" class="btn btn-primary">Check Compatibility</button>
+                <button id="add-mod-button" class="btn btn-secondary">Add to List</button>
+            </div>
+
+            <div class="mods-list-section" id="mods-list-section" style="display: none;">
+                <h2>Added Mods</h2>
+                <div id="mods-list" class="mods-list"></div>
+                <button id="check-all-button" class="btn btn-primary">Check All Mods</button>
+                <button id="clear-list-button" class="btn btn-danger">Clear List</button>
+            </div>
+
+            <div class="results-section" id="results-section" style="display: none;">
+                <h2>Compatibility Results</h2>
+                <div id="results-container"></div>
+            </div>
+
+            <div class="info-section">
+                <h2>📚 How to Use</h2>
+                <ol>
+                    <li><strong>Select your Minecraft version</strong> from the dropdown menu</li>
+                    <li><strong>Choose your mod loader</strong> (Forge, Fabric, Quilt, or NeoForge)</li>
+                    <li><strong>Enter a mod name or ID</strong> to check its compatibility</li>
+                    <li>Click <strong>"Check Compatibility"</strong> for instant results or <strong>"Add to List"</strong> to batch check multiple mods</li>
+                    <li>Use <strong>"Check All Mods"</strong> to verify compatibility for all added mods at once</li>
+                </ol>
+
+                <h3>🔍 Supported Mod Sources</h3>
+                <ul>
+                    <li>CurseForge mods</li>
+                    <li>Modrinth mods</li>
+                    <li>Popular community mods</li>
+                </ul>
+
+                <div class="note">
+                    <strong>Note:</strong> This tool provides compatibility information based on mod metadata and version patterns. 
+                    Always verify with the mod's official page for the most accurate information.
+                </div>
+            </div>
+        </main>
+
+        <footer>
+            <p>Made with ❤️ for the Minecraft modding community</p>
+        </footer>
+    </div>
+
+    <script src="app.js"></script>
+</body>
+</html>
