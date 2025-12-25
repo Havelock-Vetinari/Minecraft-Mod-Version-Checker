@@ -102,9 +102,7 @@
         }
 
         .main-content {
-            display: grid;
-            grid-template-columns: 1fr 2fr;
-            gap: 20px;
+            display: block;
             margin-bottom: 30px;
         }
 
@@ -562,9 +560,11 @@
         <div class="main-content">
             <div class="panel">
                 <div class="tabs">
-                    <button class="tab-btn active" onclick="switchPanel('add-mod')">Add Mod</button>
-                    <button class="tab-btn" onclick="switchPanel('versions')">Manage Versions</button>
-                    <button class="tab-btn" onclick="switchPanel('import-export')">Export/Import</button>
+                    <button class="tab-btn active" onclick="switchTab('add-mod')">Add Mod</button>
+                    <button class="tab-btn" onclick="switchTab('versions')">Manage Versions</button>
+                    <button class="tab-btn" onclick="switchTab('import-export')">Export/Import</button>
+                    <button class="tab-btn" onclick="switchTab('results')">Compatibility Results</button>
+                    <button class="tab-btn" onclick="switchTab('logs')">Background Job Logs</button>
                 </div>
 
                 <div id="add-mod" class="tab-content active">
@@ -661,15 +661,8 @@
                         <button class="btn btn-primary" onclick="importMods()">📥 Import from Above</button>
                     </div>
                 </div>
-            </div>
 
-            <div class="panel">
-                <div class="tabs">
-                    <button class="tab-btn active" onclick="switchTab('results')">Compatibility Results</button>
-                    <button class="tab-btn" onclick="switchTab('logs')">Background Job Logs</button>
-                </div>
-
-                <div id="results" class="tab-content active">
+                <div id="results" class="tab-content">
                     <div class="version-info-box"
                         style="display: flex; justify-content: space-between; align-items: flex-end; gap: 15px;">
                         <div style="flex: 1;">
@@ -1133,19 +1126,20 @@
             await updateBadge(latestOfficialVersion, 'latestOfficialSummary');
         }
 
-        function switchPanel(panel) {
-            document.querySelectorAll('[id^="add-mod"], [id^="versions"], [id^="import-export"]').forEach(el => {
-                if (el.id === panel) el.classList.add('active');
-                else el.classList.remove('active');
-            });
-            document.querySelectorAll('.tabs .tab-btn').forEach((btn, idx) => {
-                const panels = ['add-mod', 'versions', 'import-export'];
-                if (panels[idx] === panel) {
+        function switchTab(tabId) {
+            document.querySelectorAll('.tab-content').forEach(el => el.classList.remove('active'));
+            document.querySelectorAll('.tabs .tab-btn').forEach(el => el.classList.remove('active'));
+
+            document.getElementById(tabId).classList.add('active');
+
+            // Find the button that was clicked and activate it
+            const buttons = document.querySelectorAll('.tabs .tab-btn');
+            for (const btn of buttons) {
+                if (btn.getAttribute('onclick').includes(`'${tabId}'`)) {
                     btn.classList.add('active');
-                } else {
-                    btn.classList.remove('active');
+                    break;
                 }
-            });
+            }
         }
 
         async function populateExportVersions() {
@@ -1238,13 +1232,6 @@
             }
         }
 
-        function switchTab(tab) {
-            document.querySelectorAll('.tab-content').forEach(el => el.classList.remove('active'));
-            document.querySelectorAll('.tabs .tab-btn').forEach(el => el.classList.remove('active'));
-
-            document.getElementById(tab).classList.add('active');
-            event.target.classList.add('active');
-        }
 
         function formatDate(dateStr) {
             if (!dateStr) return 'Never';
