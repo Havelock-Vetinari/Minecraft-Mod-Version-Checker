@@ -47,3 +47,13 @@ The project follows a modular layered architecture to ensure separation of conce
 - **Run Locally**: `uvicorn app.main:app --reload`
 - **Run Tests**: `pytest`
 - **Docker**: `docker-compose up --build`
+
+### Local Development
+
+Use python virtual environment. Do not run system python.
+
+- **For pip use:** `.venv/bin/pip`
+- **For python**: `.venv/bin/python3`
+- **Run Locally**: `.venv/bin/python -m uvicorn app.main:app --reload --host 0.0.0.0 --port 8000`
+- **Run Tests**: `.venv/bin/python3 -m pytest`
+- **Docker**: `DOCKER_CONFIG=$(pwd)/.docker_tmp DOCKER_HOST="unix:///var/run/docker.sock" docker-compose up --build`
