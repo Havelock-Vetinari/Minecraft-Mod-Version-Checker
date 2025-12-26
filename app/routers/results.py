@@ -6,7 +6,7 @@ from sqlalchemy import func
 from app.core.database import get_db
 from app.models.all import CompatibilityResult, LogEntry, MCVersion, Mod
 from app.schemas.all import ResultResponse, LogResponse, SummaryResponse, StatusResponse
-from datetime import timedelta
+from datetime import timedelta, timezone
 
 router = APIRouter(
     tags=["results"]
@@ -19,7 +19,7 @@ def get_status(db: Session = Depends(get_db)):
         LogEntry.message == "Compatibility check completed"
     ).order_by(LogEntry.created_at.desc()).first()
     
-    last_check = last_log.created_at if last_log else None
+    last_check = last_log.created_at.replace(tzinfo=timezone.utc) if last_log else None
     next_check = last_check + timedelta(minutes=5) if last_check else None
     
     return StatusResponse(last_check=last_check, next_check=next_check)
@@ -56,6 +56,11 @@ def get_results(
         CompatibilityResult.checked_at.desc()
     ).all()
     
+    # Ensure datetimes are timezone-aware
+    for r in results:
+        if r.checked_at:
+            r.checked_at = r.checked_at.replace(tzinfo=timezone.utc)
+
     return results
 
 @router.get("/api/results/summary", response_model=SummaryResponse)
@@ -102,4 +107,9 @@ def get_summary(mc_version: str, db: Session = Depends(get_db)):
 def get_logs(db: Session = Depends(get_db)):
     """Get background job logs"""
     logs = db.query(LogEntry).order_by(LogEntry.created_at.desc()).limit(100).all()
+    
+    for log in logs:
+        if log.created_at:
+            log.created_at = log.created_at.replace(tzinfo=timezone.utc)
+            
     return logs

@@ -32,9 +32,13 @@ def test_api_status():
         assert data["last_check"] is not None
         assert data["next_check"] is not None
         
+        # Verify timezone indicator (ISO format with +00:00 or Z)
+        assert "+00:00" in data["last_check"] or "Z" in data["last_check"]
+        assert "+00:00" in data["next_check"] or "Z" in data["next_check"]
+        
         # Verify delta is 5 minutes
-        last = datetime.datetime.fromisoformat(data["last_check"].replace('Z', '+00:00'))
-        next_val = datetime.datetime.fromisoformat(data["next_check"].replace('Z', '+00:00'))
+        last = datetime.datetime.fromisoformat(data["last_check"])
+        next_val = datetime.datetime.fromisoformat(data["next_check"])
         diff = next_val - last
         assert diff.total_seconds() == 300
         

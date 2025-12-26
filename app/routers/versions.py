@@ -1,6 +1,7 @@
 from fastapi import APIRouter, HTTPException, Depends, BackgroundTasks
 from sqlalchemy.orm import Session
 from typing import List
+from datetime import timezone
 
 from app.core.database import get_db
 from app.models.all import MCVersion, LogEntry
@@ -21,6 +22,9 @@ def add_log(db: Session, level: str, message: str):
 def get_versions(db: Session = Depends(get_db)):
     """Get all tracked Minecraft versions"""
     versions = db.query(MCVersion).order_by(MCVersion.version).all()
+    for v in versions:
+        if v.release_time:
+            v.release_time = v.release_time.replace(tzinfo=timezone.utc)
     return versions
 
 @router.get("/current")
