@@ -520,18 +520,20 @@
         <div class="status-bar">
             <div class="status-card">
                 <div class="status-icon">📦</div>
-                <div class="status-content">
+                <div class="status-content" style="flex: 1;">
                     <h3>Current MC Version</h3>
                     <p id="currentVersion">Not Set</p>
-                    <p id="currentVersionSummary" style="font-size: 11px; opacity: 0.8; margin-top: 2px;"></p>
+                    <div id="currentVersionSummary"
+                        style="margin-top: 8px; display: flex; flex-direction: column; gap: 4px;"></div>
                 </div>
             </div>
             <div class="status-card">
                 <div class="status-icon">🚀</div>
-                <div class="status-content">
+                <div class="status-content" style="flex: 1;">
                     <h3>Latest Official</h3>
                     <p id="latestOfficialVersion">Checking...</p>
-                    <p id="latestOfficialSummary" style="font-size: 11px; opacity: 0.8; margin-top: 2px;"></p>
+                    <div id="latestOfficialSummary"
+                        style="margin-top: 8px; display: flex; flex-direction: column; gap: 4px;"></div>
                 </div>
             </div>
             <div class="status-card">
@@ -1091,29 +1093,41 @@
 
             // Fetch summaries for badges
             const updateBadge = async (version, elementId) => {
-                if (!version) return;
+                const el = document.getElementById(elementId);
+                if (!version) {
+                    el.innerHTML = '';
+                    return;
+                }
                 try {
                     const res = await fetch(`${API_BASE}/results/summary?mc_version=${version}`);
                     const data = await res.json();
 
-                    let emoji = '';
-                    let color = 'inherit';
+                    const createBadgeSummary = (label, compatible, total, emoji) => {
+                        let badgeClass = 'badge-warning';
+                        let statusEmoji = '⏳';
 
-                    if (data.total > 0) {
-                        if (data.compatible === data.total) {
-                            emoji = ' ✅';
-                            color = 'var(--success)';
-                        } else {
-                            emoji = ' ❌';
-                            color = 'var(--error)';
+                        if (total > 0) {
+                            if (compatible === total) {
+                                badgeClass = 'badge-success';
+                                statusEmoji = '✅';
+                            } else {
+                                badgeClass = 'badge-error';
+                                statusEmoji = '❌';
+                            }
                         }
-                    } else if (mods.length > 0) {
-                        emoji = ' ⏳'; // Pending checks for this version
-                    }
 
-                    const el = document.getElementById(elementId);
-                    el.innerHTML = `${data.compatible} / ${data.total} compatible${emoji}`;
-                    el.style.color = color;
+                        return `
+                            <div style="display: flex; justify-content: space-between; align-items: center;">
+                                <span style="font-size: 11px; color: var(--text-secondary);">${emoji} ${label}</span>
+                                <span class="badge ${badgeClass}">${compatible} / ${total} ${statusEmoji}</span>
+                            </div>
+                        `;
+                    };
+
+                    el.innerHTML = `
+                        ${createBadgeSummary('Server', data.server_compatible, data.server_total, '🖧')}
+                        ${createBadgeSummary('Client', data.client_compatible, data.client_total, '👤')}
+                    `;
                 } catch (e) {
                     console.error('Failed to update badge stats', e);
                 }

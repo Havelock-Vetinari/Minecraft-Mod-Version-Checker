@@ -57,3 +57,7 @@ class LogResponse(BaseModel):
 class SummaryResponse(BaseModel):
     compatible: int
     total: int
+    server_compatible: int
+    server_total: int
+    client_compatible: int
+    client_total: int

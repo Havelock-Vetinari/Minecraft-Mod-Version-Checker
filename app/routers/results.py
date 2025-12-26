@@ -38,13 +38,6 @@ def get_results(
 @router.get("/api/results/summary", response_model=SummaryResponse)
 def get_summary(mc_version: str, db: Session = Depends(get_db)):
     """Get compatibility summary for a specific Minecraft version"""
-    # We want latest result per mod/loader for this version
-    # Since we don't have a direct "latest" flag, we can group by mod_slug and loader
-    # For SQLite, it's a bit tricky to get the latest per group in one query with counts easily without subqueries
-    
-    # A simpler way (since data is small) is to fetch all for this version and filter in memory,
-    # or use a subquery. 
-    
     # Subquery to get max checked_at per mod/loader for this mc_version
     subq = db.query(
         CompatibilityResult.mod_slug,
@@ -55,7 +48,7 @@ def get_summary(mc_version: str, db: Session = Depends(get_db)):
         CompatibilityResult.loader
     ).subquery()
     
-    latest_results = db.query(CompatibilityResult).join(
+    latest_results = db.query(CompatibilityResult, Mod).join(
         subq,
         (CompatibilityResult.mod_slug == subq.c.mod_slug) & 
         (CompatibilityResult.loader == subq.c.loader) & 
@@ -64,10 +57,23 @@ def get_summary(mc_version: str, db: Session = Depends(get_db)):
         Mod, (CompatibilityResult.mod_slug == Mod.slug) & (CompatibilityResult.loader == Mod.loader)
     ).all()
     
-    compatible = sum(1 for r in latest_results if r.status == "compatible")
+    compatible = sum(1 for r, m in latest_results if r.status == "compatible")
     total = len(latest_results)
     
-    return SummaryResponse(compatible=compatible, total=total)
+    server_compatible = sum(1 for r, m in latest_results if r.status == "compatible" and m.side in ["server", "both"])
+    server_total = sum(1 for r, m in latest_results if m.side in ["server", "both"])
+    
+    client_compatible = sum(1 for r, m in latest_results if r.status == "compatible" and m.side in ["client", "both"])
+    client_total = sum(1 for r, m in latest_results if m.side in ["client", "both"])
+    
+    return SummaryResponse(
+        compatible=compatible, 
+        total=total,
+        server_compatible=server_compatible,
+        server_total=server_total,
+        client_compatible=client_compatible,
+        client_total=client_total
+    )
 
 @router.get("/api/logs", response_model=List[LogResponse])
 def get_logs(db: Session = Depends(get_db)):
