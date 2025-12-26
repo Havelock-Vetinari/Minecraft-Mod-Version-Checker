@@ -14,6 +14,7 @@ router = APIRouter(
 @router.get("/api/results", response_model=List[ResultResponse])
 def get_results(
     mc_version: Optional[str] = Query(None),
+    side: Optional[str] = Query(None),
     db: Session = Depends(get_db)
 ):
     """Get compatibility check results with filtering and sorting"""
@@ -26,6 +27,14 @@ def get_results(
     if mc_version:
         query = query.filter(CompatibilityResult.mc_version == mc_version)
     
+    if side:
+        if side == "both":
+            query = query.filter(Mod.side == "both")
+        elif side == "server":
+            query = query.filter(Mod.side.in_(["server", "both"]))
+        elif side == "client":
+            query = query.filter(Mod.side.in_(["client", "both"]))
+
     # Sort by mod name (slug) ASC, then by MC version release time DESC, then by checked_at DESC
     results = query.order_by(
         CompatibilityResult.mod_slug.asc(),

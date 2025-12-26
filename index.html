@@ -518,7 +518,8 @@
 
     <div class="container">
         <div class="status-bar">
-            <div class="status-card">
+            <div class="status-card" id="currentVersionCard" style="cursor: pointer; transition: transform 0.2s;"
+                onclick="onBadgeClick(currentVersion)">
                 <div class="status-icon">📦</div>
                 <div class="status-content" style="flex: 1;">
                     <h3>Current MC Version</h3>
@@ -527,7 +528,8 @@
                         style="margin-top: 8px; display: flex; flex-direction: column; gap: 4px;"></div>
                 </div>
             </div>
-            <div class="status-card">
+            <div class="status-card" id="latestOfficialCard" style="cursor: pointer; transition: transform 0.2s;"
+                onclick="onBadgeClick(latestOfficialVersion)">
                 <div class="status-icon">🚀</div>
                 <div class="status-content" style="flex: 1;">
                     <h3>Latest Official</h3>
@@ -672,6 +674,16 @@
                             <select id="resultVersionFilter" onchange="fetchResults()"
                                 style="background: var(--bg-dark); border: 1px solid var(--border); border-radius: 4px; padding: 6px 10px; color: var(--text-primary); font-size: 13px; width: 100%;">
                                 <option value="">All Versions</option>
+                            </select>
+                        </div>
+                        <div style="flex: 1;">
+                            <div class="version-info-label">Filter by Mod Type</div>
+                            <select id="resultSideFilter" onchange="fetchResults()"
+                                style="background: var(--bg-dark); border: 1px solid var(--border); border-radius: 4px; padding: 6px 10px; color: var(--text-primary); font-size: 13px; width: 100%;">
+                                <option value="">All Types</option>
+                                <option value="server">Server Side (Server + Both)</option>
+                                <option value="client">Client Side (Client + Both)</option>
+                                <option value="both">Both Only</option>
                             </select>
                         </div>
                     </div>
@@ -837,10 +849,12 @@
         async function fetchResults() {
             try {
                 const mcFilter = document.getElementById('resultVersionFilter').value;
+                const sideFilter = document.getElementById('resultSideFilter').value;
                 const url = new URL(`${window.location.origin}${API_BASE}/results`);
                 if (mcFilter) url.searchParams.append('mc_version', mcFilter);
+                if (sideFilter) url.searchParams.append('side', sideFilter);
 
-                const res = await fetch(url);
+                const res = await fetch(url.toString());
                 results = await res.json();
                 renderResults();
             } catch (error) {
@@ -1092,49 +1106,61 @@
             document.getElementById('compatCount').innerHTML = `${compatible} / ${total}`;
 
             // Fetch summaries for badges
-            const updateBadge = async (version, elementId) => {
+            const updateBadge = (version, elementId) => {
                 const el = document.getElementById(elementId);
                 if (!version) {
                     el.innerHTML = '';
                     return;
                 }
-                try {
-                    const res = await fetch(`${API_BASE}/results/summary?mc_version=${version}`);
-                    const data = await res.json();
 
-                    const createBadgeSummary = (label, compatible, total, emoji) => {
-                        let badgeClass = 'badge-warning';
-                        let statusEmoji = '⏳';
+                fetch(`${API_BASE}/results/summary?mc_version=${version}`)
+                    .then(res => res.json())
+                    .then(data => {
+                        const createBadgeSummary = (label, compatible, total, emoji, side) => {
+                            let badgeClass = 'badge-warning';
+                            let statusEmoji = '⏳';
 
-                        if (total > 0) {
-                            if (compatible === total) {
-                                badgeClass = 'badge-success';
-                                statusEmoji = '✅';
-                            } else {
-                                badgeClass = 'badge-error';
-                                statusEmoji = '❌';
+                            if (total > 0) {
+                                if (compatible === total) {
+                                    badgeClass = 'badge-success';
+                                    statusEmoji = '✅';
+                                } else {
+                                    badgeClass = 'badge-error';
+                                    statusEmoji = '❌';
+                                }
                             }
-                        }
 
-                        return `
-                            <div style="display: flex; justify-content: space-between; align-items: center;">
-                                <span style="font-size: 11px; color: var(--text-secondary);">${emoji} ${label}</span>
-                                <span class="badge ${badgeClass}">${compatible} / ${total} ${statusEmoji}</span>
-                            </div>
+                            return `
+                                <div style="display: flex; justify-content: space-between; align-items: center; cursor: pointer; padding: 2px 4px; border-radius: 4px; transition: background 0.2s;" 
+                                     onmouseover="this.style.background='rgba(255,255,255,0.05)'" 
+                                     onmouseout="this.style.background='transparent'"
+                                     onclick="event.stopPropagation(); onBadgeClick('${version}', '${side}')">
+                                    <span style="font-size: 11px; color: var(--text-secondary);">${emoji} ${label}</span>
+                                    <span class="badge ${badgeClass}">${compatible} / ${total} ${statusEmoji}</span>
+                                </div>
+                            `;
+                        };
+
+                        el.innerHTML = `
+                            ${createBadgeSummary('Server', data.server_compatible, data.server_total, '🖧', 'server')}
+                            ${createBadgeSummary('Client', data.client_compatible, data.client_total, '👤', 'client')}
                         `;
-                    };
-
-                    el.innerHTML = `
-                        ${createBadgeSummary('Server', data.server_compatible, data.server_total, '🖧')}
-                        ${createBadgeSummary('Client', data.client_compatible, data.client_total, '👤')}
-                    `;
-                } catch (e) {
-                    console.error('Failed to update badge stats', e);
-                }
+                    })
+                    .catch(e => console.error('Failed to update badge stats', e));
             };
 
             await updateBadge(currentVersion, 'currentVersionSummary');
             await updateBadge(latestOfficialVersion, 'latestOfficialSummary');
+        }
+
+        function onBadgeClick(version, side = '') {
+            if (!version || version === 'Checking...' || version === 'Not Set') return;
+
+            document.getElementById('resultVersionFilter').value = version;
+            document.getElementById('resultSideFilter').value = side;
+
+            switchTab('results');
+            fetchResults();
         }
 
         function switchTab(tabId) {
