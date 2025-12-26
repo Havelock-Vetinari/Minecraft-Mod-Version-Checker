@@ -78,10 +78,10 @@ async def get_mod_compatible_versions(slug: str, loader: str) -> Tuple[List[str]
         return [], error_msg
 
 
-async def find_mod_version_for_mc(slug: str, loader: str, mc_version: str) -> Optional[str]:
+async def find_mod_version_for_mc(slug: str, loader: str, mc_version: str) -> Optional[dict]:
     """
-    Find the specific mod version ID compatible with a given Minecraft version and loader.
-    Returns the version ID or None if not found.
+    Find the specific mod version ID and version number compatible with a given Minecraft version and loader.
+    Returns a dict with {'id': ..., 'version_number': ...} or None if not found.
     """
     try:
         async with httpx.AsyncClient(timeout=10) as client:
@@ -89,8 +89,6 @@ async def find_mod_version_for_mc(slug: str, loader: str, mc_version: str) -> Op
             versions_url = f"{MODRINTH_BASE}/project/{slug}/version"
             
             # The API allows filtering by loaders and game_versions directly in parameters
-            # formatting: loaders=["fabric"]&game_versions=["1.21.1"]
-            # But query params need properly JSON encoded arrays
             params = {
                 "loaders": f'["{loader}"]',
                 "game_versions": f'["{mc_version}"]'
@@ -109,14 +107,40 @@ async def find_mod_version_for_mc(slug: str, loader: str, mc_version: str) -> Op
             if releases:
                 # API returns sorted by date desc by default, but to be sure sort again
                 releases.sort(key=lambda x: x.get("date_published", ""), reverse=True)
-                return releases[0]["id"]
+                return {
+                    "id": releases[0]["id"],
+                    "version_number": releases[0].get("version_number")
+                }
             
             # Fallback to any version if no release found (e.g. beta)
             if versions:
-                return versions[0]["id"]
+                return {
+                    "id": versions[0]["id"],
+                    "version_number": versions[0].get("version_number")
+                }
                 
             return None
             
     except Exception as e:
         logger.error(f"Failed to find version for {slug} on MC {mc_version}: {e}")
+        return None
+
+
+async def get_mod_details(slug: str) -> Optional[dict]:
+    """Fetch mod details from Modrinth to get side information"""
+    try:
+        async with httpx.AsyncClient(timeout=10) as client:
+            headers = {"User-Agent": USER_AGENT}
+            project_url = f"{MODRINTH_BASE}/project/{slug}"
+            
+            response = await client.get(project_url, headers=headers, timeout=5)
+            response.raise_for_status()
+            
+            data = response.json()
+            return {
+                "client_side": data.get("client_side"),
+                "server_side": data.get("server_side")
+            }
+    except Exception as e:
+        logger.error(f"Failed to fetch details for mod {slug}: {e}")
         return None

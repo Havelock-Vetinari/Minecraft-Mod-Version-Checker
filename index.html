@@ -560,14 +560,14 @@
         <div class="main-content">
             <div class="panel">
                 <div class="tabs">
-                    <button class="tab-btn active" onclick="switchTab('add-mod')">Add Mod</button>
+                    <button class="tab-btn active" onclick=" switchTab('results')">Compatibility Results</button>
+                    <button class="tab-btn" onclick="switchTab('add-mod')">Add Mod</button>
                     <button class="tab-btn" onclick="switchTab('versions')">Manage Versions</button>
                     <button class="tab-btn" onclick="switchTab('import-export')">Export/Import</button>
-                    <button class="tab-btn" onclick="switchTab('results')">Compatibility Results</button>
                     <button class="tab-btn" onclick="switchTab('logs')">Background Job Logs</button>
                 </div>
 
-                <div id="add-mod" class="tab-content active">
+                <div id="add-mod" class="tab-content">
                     <div class="panel-title">📝 Add Mod to Track</div>
 
                     <div class="form-group">
@@ -662,7 +662,7 @@
                     </div>
                 </div>
 
-                <div id="results" class="tab-content">
+                <div id="results" class="tab-content active">
                     <div class="version-info-box"
                         style="display: flex; justify-content: space-between; align-items: flex-end; gap: 15px;">
                         <div style="flex: 1;">
@@ -858,10 +858,8 @@
             }
 
             // Since backend returns sorted results (Mod name ASC, MC Newest DESC)
-            // We can just render them. However, we might want to group by mod to keep the previous UI style.
-
             const resultsByMod = {};
-            const modOrder = []; // To keep deterministic order from backend
+            const modOrder = [];
 
             results.forEach(r => {
                 if (!resultsByMod[r.mod_slug]) {
@@ -875,7 +873,6 @@
 
             for (const modSlug of modOrder) {
                 const modResults = resultsByMod[modSlug];
-                // Within each mod, backend already sorted by MC release time
 
                 // Get most recent check for each MC version to avoid duplicates in display
                 const uniqueChecks = {};
@@ -883,7 +880,6 @@
                     if (!uniqueChecks[r.mc_version]) uniqueChecks[r.mc_version] = r;
                 });
 
-                // Keep the order of versions as they appeared from backend
                 const versionsShown = [];
                 modResults.forEach(r => {
                     if (!versionsShown.includes(r.mc_version)) versionsShown.push(r.mc_version);
@@ -906,6 +902,14 @@
                     let statusText = r.status === 'compatible' ? '✓ Compatible' :
                         r.status === 'incompatible' ? '✗ Incompatible' : '⚠️ Error';
 
+                    // Display both version number and ID if available
+                    let versionDisplay = '';
+                    if (r.mod_version_number && r.mod_version_id) {
+                        versionDisplay = `${r.mod_version_number} (${r.mod_version_id})`;
+                    } else {
+                        versionDisplay = r.mod_version_number || r.mod_version_id || 'Unknown';
+                    }
+
                     html += `
                         <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
                             <div style="font-size: 13px;">
@@ -914,7 +918,7 @@
                             </div>
                             <span class="badge ${badgeClass}">${statusText}</span>
                         </div>
-                        ${r.mod_version_id ? `<div style="font-size: 11px; color: var(--text-secondary); margin-bottom: 4px;">Mod Version: ${r.mod_version_id}</div>` : ''}
+                        ${versionDisplay !== 'Unknown' ? `<div style="font-size: 11px; color: var(--text-secondary); margin-bottom: 4px;"><strong>Mod Version:</strong> ${versionDisplay}</div>` : ''}
                         ${r.error ? `<div class="result-details" style="color:var(--error)">${r.error}</div>` : ''}
                      `;
                 });
@@ -964,6 +968,34 @@
             }
         }
 
+        async function updateModSide(modId, side) {
+            try {
+                const res = await fetch(`${API_BASE}/mods/${modId}/side`, {
+                    method: 'PATCH',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ side })
+                });
+
+                if (!res.ok) {
+                    const error = await res.json();
+                    throw new Error(error.detail || 'Failed to update side');
+                }
+
+                showToast('Mod side updated', 'success');
+                // Update local state
+                const mod = mods.find(m => m.id === modId);
+                if (mod) mod.side = side;
+
+                // Trigger results refresh since side changed
+                fetchResults();
+                updateStats();
+            } catch (error) {
+                showToast(error.message, 'error');
+                // Re-render to revert change if needed
+                renderMods();
+            }
+        }
+
         async function removeMod(modId) {
             try {
                 const res = await fetch(`${API_BASE}/mods/${modId}`, { method: 'DELETE' });
@@ -1001,72 +1033,37 @@
                 return;
             }
 
-            container.innerHTML = mods.map(mod => `
+            container.innerHTML = mods.map(mod => {
+                const canBeClient = mod.supported_client_side !== 'unsupported';
+                const canBeServer = mod.supported_server_side !== 'unsupported';
+
+                return `
                 <div class="mod-item">
                     <div class="mod-info">
                         <div class="mod-name">${mod.slug}</div>
-                        <div class="mod-side">MC ${mod.mc_version} • ${mod.loader}</div>
-                        <div class="mod-slug">
-                            <span class="badge ${mod.side === 'client' ? 'badge-client' : mod.side === 'server' ? 'badge-server' : 'badge-client'}">
-                                ${mod.side === 'both' ? '🖥️ Client+Server' : mod.side === 'client' ? '👤 Client' : '🖧 Server'}
-                            </span>
+                        <div class="mod-side">MC ${mod.mc_version || 'Any'} • ${mod.loader}</div>
+                        <div class="mod-slug" style="margin-top: 8px; display: flex; flex-wrap: wrap; gap: 5px; align-items: center;">
+                            <select onchange="updateModSide(${mod.id}, this.value)" style="width: auto; padding: 2px 5px; font-size: 11px; height: 24px; background: var(--bg-light);">
+                                <option value="both" ${mod.side === 'both' ? 'selected' : ''} ${(!canBeClient || !canBeServer) ? 'disabled' : ''}>🖥️ Both</option>
+                                <option value="client" ${mod.side === 'client' ? 'selected' : ''} ${!canBeClient ? 'disabled' : ''}>👤 Client Only</option>
+                                <option value="server" ${mod.side === 'server' ? 'selected' : ''} ${!canBeServer ? 'disabled' : ''}>🖧 Server Only</option>
+                            </select>
                             <span class="badge ${getLoaderBadgeClass(mod.loader)}">
                                 ${mod.loader.toUpperCase()}
                             </span>
                         </div>
+                        <div style="font-size: 10px; color: var(--text-secondary); margin-top: 4px;">
+                            Supports: ${canBeClient ? 'Client' : '<span style="color:var(--error)">No Client</span>'} | 
+                            ${canBeServer ? 'Server' : '<span style="color:var(--error)">No Server</span>'}
+                        </div>
                     </div>
                     <div class="mod-actions">
-                        <button class="btn btn-secondary" onclick="removeMod(${mod.id})">Remove</button>
+                        <button class="btn btn-secondary btn-sm" onclick="removeMod(${mod.id})">Remove</button>
                     </div>
                 </div>
-            `).join('');
+            `}).join('');
         }
 
-        function renderResults() {
-            const container = document.getElementById('resultsContainer');
-            if (results.length === 0) {
-                container.innerHTML = `
-                    <div class="empty-state">
-                        <div class="empty-state-icon">🔍</div>
-                        <p>No compatibility checks yet. Background job will run every 5 minutes.</p>
-                    </div>
-                `;
-                return;
-            }
-
-            const grouped = {};
-            results.forEach(r => {
-                const key = `${r.mod_slug}-${r.mc_version}-${r.loader}`;
-                if (!grouped[key]) grouped[key] = r;
-                else if (new Date(r.checked_at) > new Date(grouped[key].checked_at)) {
-                    grouped[key] = r;
-                }
-            });
-
-            container.innerHTML = Object.values(grouped).map(result => {
-                const status = result.status === 'compatible' ? 'compatible' :
-                    result.status === 'incompatible' ? 'incompatible' : 'error';
-                const statusText = result.status === 'compatible' ? '✓ Compatible' :
-                    result.status === 'incompatible' ? '✗ Incompatible' : '⚠️ Error';
-
-                return `
-                    <div class="compatibility-result ${status}">
-                        <div class="result-header">
-                            <span class="result-name">${result.mod_slug}</span>
-                            <span class="badge ${result.status === 'compatible' ? 'badge-success' : result.status === 'incompatible' ? 'badge-error' : 'badge-warning'}">
-                                ${statusText}
-                            </span>
-                        </div>
-                        <div class="result-details">
-                            <strong>Version:</strong> ${result.mc_version} • <strong>Loader:</strong> ${result.loader.toUpperCase()}<br>
-                            ${result.mod_version_id ? `<strong>Mod Version ID:</strong> <span style="font-family: monospace; background: rgba(0,0,0,0.2); padding: 2px 4px; border-radius: 4px;">${result.mod_version_id}</span><br>` : ''}
-                            <strong>Checked:</strong> ${formatDate(result.checked_at)}
-                            ${result.error ? `<br><strong style="color: var(--error);">Error:</strong> ${result.error}` : ''}
-                        </div>
-                    </div>
-                `;
-            }).join('');
-        }
 
         function renderLogs() {
             const container = document.getElementById('logsContainer');

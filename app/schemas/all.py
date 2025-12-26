@@ -30,6 +30,8 @@ class ModResponse(BaseModel):
     mc_version: Optional[str] = None
     loader: str
     side: str
+    supported_client_side: Optional[str] = None
+    supported_server_side: Optional[str] = None
 
 
 class ResultResponse(BaseModel):
@@ -40,6 +42,7 @@ class ResultResponse(BaseModel):
     status: str
     compatible_versions: List[str]
     mod_version_id: Optional[str] = None
+    mod_version_number: Optional[str] = None
     error: Optional[str]
     checked_at: datetime
 

@@ -8,9 +8,9 @@ async def test_find_mod_version_found():
     # Mock httpx client response
     mock_response = MagicMock()
     mock_response.json.return_value = [
-        {"id": "ver_release_123", "version_type": "release", "date_published": "2023-01-02T00:00:00Z"},
-        {"id": "ver_release_old", "version_type": "release", "date_published": "2023-01-01T00:00:00Z"},
-        {"id": "ver_beta_123", "version_type": "beta", "date_published": "2023-01-03T00:00:00Z"}
+        {"id": "ver_release_123", "version_number": "1.2.3", "version_type": "release", "date_published": "2023-01-02T00:00:00Z"},
+        {"id": "ver_release_old", "version_number": "1.2.2", "version_type": "release", "date_published": "2023-01-01T00:00:00Z"},
+        {"id": "ver_beta_123", "version_number": "1.2.4-beta", "version_type": "beta", "date_published": "2023-01-03T00:00:00Z"}
     ]
     mock_response.raise_for_status = MagicMock()
     
@@ -20,17 +20,17 @@ async def test_find_mod_version_found():
         MockClient.return_value.__aenter__.return_value = mock_client_instance
         
         # Test finding latest release
-        version_id = await find_mod_version_for_mc("slug-123", "fabric", "1.21.1")
+        ver_data = await find_mod_version_for_mc("slug-123", "fabric", "1.21.1")
         
-        assert version_id == "ver_release_123"
-        print("\nSUCCESS: Found latest stable version ID")
+        assert ver_data == {"id": "ver_release_123", "version_number": "1.2.3"}
+        print("\nSUCCESS: Found latest stable version dict")
 
 @pytest.mark.asyncio
 async def test_find_mod_version_fallback_beta():
     # Only beta versions available
     mock_response = MagicMock()
     mock_response.json.return_value = [
-         {"id": "ver_beta_123", "version_type": "beta", "date_published": "2023-01-03T00:00:00Z"}
+         {"id": "ver_beta_123", "version_number": "1.2.4-beta", "version_type": "beta", "date_published": "2023-01-03T00:00:00Z"}
     ]
     mock_response.raise_for_status = MagicMock()
 
@@ -40,9 +40,9 @@ async def test_find_mod_version_fallback_beta():
         MockClient.return_value.__aenter__.return_value = mock_client_instance
         
         # Should fallback to the beta version
-        version_id = await find_mod_version_for_mc("slug-123", "fabric", "1.21.1")
+        ver_data = await find_mod_version_for_mc("slug-123", "fabric", "1.21.1")
         
-        assert version_id == "ver_beta_123"
+        assert ver_data == {"id": "ver_beta_123", "version_number": "1.2.4-beta"}
         print("\nSUCCESS: Fallback to beta version works")
 
 @pytest.mark.asyncio

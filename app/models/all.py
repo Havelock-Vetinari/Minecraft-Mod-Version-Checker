@@ -20,6 +20,8 @@ class Mod(Base):
     mc_version = Column(String, nullable=True)  # Version mod was added for
     loader = Column(String)
     side = Column(String)  # client, server, both
+    supported_client_side = Column(String, nullable=True)  # required, optional, unsupported
+    supported_server_side = Column(String, nullable=True)  # required, optional, unsupported
     created_at = Column(DateTime, default=datetime.utcnow)
 
 
@@ -32,6 +34,7 @@ class CompatibilityResult(Base):
     status = Column(String)  # compatible, incompatible, error
     compatible_versions = Column(JSON, default=list)  # Versions this mod supports
     mod_version_id = Column(String, nullable=True)     # The specific mod version ID compatible with this MC version
+    mod_version_number = Column(String, nullable=True) # The specific mod version number (human readable)
     error = Column(String, nullable=True)
     checked_at = Column(DateTime, default=datetime.utcnow)
 

@@ -130,10 +130,14 @@ async def check_mod_against_targets(db: Session, mod: Mod, target_versions: List
     for tv in target_versions:
         status = "compatible" if tv in mod_compatible_versions else "incompatible"
         
-        # If compatible, find the specific mod version ID
+        # If compatible, find the specific mod version ID and number
         mod_version_id = None
+        mod_version_number = None
         if status == "compatible":
-            mod_version_id = await find_mod_version_for_mc(mod.slug, mod.loader, tv)
+            ver_data = await find_mod_version_for_mc(mod.slug, mod.loader, tv)
+            if ver_data:
+                mod_version_id = ver_data["id"]
+                mod_version_number = ver_data["version_number"]
         
         result = CompatibilityResult(
             mod_slug=mod.slug,
@@ -142,6 +146,7 @@ async def check_mod_against_targets(db: Session, mod: Mod, target_versions: List
             status=status,
             compatible_versions=mod_compatible_versions,
             mod_version_id=mod_version_id,
+            mod_version_number=mod_version_number,
             checked_at=datetime.utcnow()
         )
         db.add(result)
