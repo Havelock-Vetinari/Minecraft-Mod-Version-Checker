@@ -541,8 +541,10 @@
             <div class="status-card">
                 <div class="status-icon">⏱️</div>
                 <div class="status-content">
-                    <h3>Last Background Check</h3>
-                    <p id="lastCheckTime">Never</p>
+                    <h3>Background Check Status</h3>
+                    <p id="lastCheckTime" style="font-size: 14px;">Last: Never</p>
+                    <p id="nextCheckTime" style="font-size: 12px; color: var(--text-secondary); margin-top: 4px;">Next:
+                        --:--:--</p>
                 </div>
             </div>
             <div class="status-card">
@@ -770,6 +772,7 @@
                 renderLogs();
 
                 updateStats();
+                await loadBackgroundStatus();
             } catch (error) {
                 showToast('Failed to load initial data', 'error');
                 console.error(error);
@@ -1269,6 +1272,31 @@
             }
         }
 
+
+        async function loadBackgroundStatus() {
+            try {
+                const res = await fetch(`${API_BASE}/status`);
+                const data = await res.json();
+
+                const lastCheckEl = document.getElementById('lastCheckTime');
+                const nextCheckEl = document.getElementById('nextCheckTime');
+
+                if (data.last_check) {
+                    lastCheckEl.innerHTML = `Last: ${formatDate(data.last_check)}`;
+                } else {
+                    lastCheckEl.innerHTML = 'Last: Never';
+                }
+
+                if (data.next_check) {
+                    const nextDate = new Date(data.next_check);
+                    nextCheckEl.innerHTML = `Next: ${nextDate.toLocaleTimeString()}`;
+                } else {
+                    nextCheckEl.innerHTML = 'Next: --:--:--';
+                }
+            } catch (error) {
+                console.error('Failed to load background status', error);
+            }
+        }
 
         function formatDate(dateStr) {
             if (!dateStr) return 'Never';

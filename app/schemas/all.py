@@ -61,3 +61,8 @@ class SummaryResponse(BaseModel):
     server_total: int
     client_compatible: int
     client_total: int
+
+
+class StatusResponse(BaseModel):
+    last_check: Optional[datetime] = None
+    next_check: Optional[datetime] = None

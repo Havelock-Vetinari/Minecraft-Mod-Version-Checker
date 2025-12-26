@@ -5,11 +5,25 @@ from sqlalchemy import func
 
 from app.core.database import get_db
 from app.models.all import CompatibilityResult, LogEntry, MCVersion, Mod
-from app.schemas.all import ResultResponse, LogResponse, SummaryResponse
+from app.schemas.all import ResultResponse, LogResponse, SummaryResponse, StatusResponse
+from datetime import timedelta
 
 router = APIRouter(
     tags=["results"]
 )
+
+@router.get("/api/status", response_model=StatusResponse)
+def get_status(db: Session = Depends(get_db)):
+    """Get background job status (last and next check)"""
+    last_log = db.query(LogEntry).filter(
+        LogEntry.message == "Compatibility check completed"
+    ).order_by(LogEntry.created_at.desc()).first()
+    
+    last_check = last_log.created_at if last_log else None
+    next_check = last_check + timedelta(minutes=5) if last_check else None
+    
+    return StatusResponse(last_check=last_check, next_check=next_check)
+
 
 @router.get("/api/results", response_model=List[ResultResponse])
 def get_results(
