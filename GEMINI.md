@@ -42,12 +42,6 @@ The project follows a modular layered architecture to ensure separation of conce
 - Built with FastAPI.
 - Routers are separated by resource (Versions, Mods, Results).
 
-## Development
-
-- **Run Locally**: `uvicorn app.main:app --reload`
-- **Run Tests**: `pytest`
-- **Docker**: `docker-compose up --build`
-
 ### Local Development
 
 Use python virtual environment. Do not run system python.
