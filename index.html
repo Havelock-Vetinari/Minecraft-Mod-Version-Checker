@@ -653,8 +653,9 @@
                         <select id="exportVersionSelect">
                             <option value="">No compatible versions found</option>
                         </select>
-                        <p style="font-size: 11px; color: var(--text-secondary); margin-top: 4px;">Only versions with
-                            100% compatibility are shown.</p>
+                        <p style="font-size: 11px; color: var(--text-secondary); margin-top: 4px;">Only versions where
+                            all
+                            server/both mods are compatible are shown (client-only mods are ignored).</p>
                     </div>
 
                     <div class="form-group">
@@ -1186,7 +1187,7 @@
             const select = document.getElementById('exportVersionSelect');
             const currentSelected = select.value;
 
-            // For each version, check if all mods are compatible
+            // For each version, check if all server/both mods are compatible
             const compatibleVersions = [];
 
             for (const v of versions) {
@@ -1194,7 +1195,9 @@
                     const res = await fetch(`${API_BASE}/results/summary?mc_version=${v.version}`);
                     const summary = await res.json();
 
-                    if (summary.total > 0 && summary.compatible === summary.total) {
+                    // Only check server-side compatibility (server + both mods)
+                    // Client-side only mods don't matter for server exports
+                    if (summary.server_total > 0 && summary.server_compatible === summary.server_total) {
                         compatibleVersions.push(v.version);
                     }
                 } catch (e) {
@@ -1203,7 +1206,7 @@
             }
 
             if (compatibleVersions.length === 0) {
-                select.innerHTML = '<option value="">No fully compatible versions</option>';
+                select.innerHTML = '<option value="">No versions with all server mods compatible</option>';
             } else {
                 select.innerHTML = compatibleVersions.map(v =>
                     `<option value="${v}" ${v === currentSelected ? 'selected' : ''}>${v}</option>`

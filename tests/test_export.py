@@ -84,3 +84,43 @@ def test_export_no_server_mods():
     response = client.get("/api/mods/export?mc_version=1.20.4")
     assert response.status_code == 400
     assert "No server-side or 'both' mods found" in response.json()["detail"]
+
+def test_export_with_incompatible_client_mods():
+    """Test that incompatible client-side mods don't block export when server/both mods are compatible"""
+    db = TestingSessionLocal()
+    
+    # 1. Add mods with different sides
+    mod_server = Mod(slug="mod-server", mc_version="1.20.4", loader="fabric", side="server")
+    mod_both = Mod(slug="mod-both", mc_version="1.20.4", loader="fabric", side="both")
+    mod_client = Mod(slug="mod-client", mc_version="1.20.4", loader="fabric", side="client")
+    
+    db.add_all([mod_server, mod_both, mod_client])
+    db.commit()
+
+    # 2. Add compatibility results - server and both are compatible, client is NOT
+    res_server = CompatibilityResult(mod_slug="mod-server", mc_version="1.20.4", loader="fabric", status="compatible", mod_version_id="v1")
+    res_both = CompatibilityResult(mod_slug="mod-both", mc_version="1.20.4", loader="fabric", status="compatible", mod_version_id="v2")
+    res_client = CompatibilityResult(mod_slug="mod-client", mc_version="1.20.4", loader="fabric", status="incompatible")  # INCOMPATIBLE
+    
+    db.add_all([res_server, res_both, res_client])
+    db.commit()
+
+    # 3. Request export for 1.20.4 - should SUCCEED despite incompatible client mod
+    response = client.get("/api/mods/export?mc_version=1.20.4")
+    assert response.status_code == 200
+    
+    data = response.json()
+    assert "yaml" in data
+    
+    yaml_content = yaml.safe_load(data["yaml"])
+    env = yaml_content["services"]["mc"]["environment"]
+    
+    projects_str = env["MODRINTH_PROJECTS"]
+    projects = [p.strip() for p in projects_str.split("\n") if p.strip()]
+    
+    # Verify that only compatible server and both mods are present
+    assert "mod-server:v1" in projects
+    assert "mod-both:v2" in projects
+    assert "mod-client" not in " ".join(projects)  # Client mod should not be in export at all
+    assert len(projects) == 2
+

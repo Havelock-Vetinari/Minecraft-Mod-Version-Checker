@@ -100,7 +100,7 @@ def export_mods(mc_version: str = Query(...), db: Session = Depends(get_db)):
     loader_type = mods_to_export[0].loader.upper()
 
     for mod in mods_to_export:
-        # Verify full compatibility for mods being exported
+        # Verify full compatibility for server/both mods being exported (client-side mods are ignored)
         res = db.query(CompatibilityResult).filter(
             CompatibilityResult.mod_slug == mod.slug,
             CompatibilityResult.mc_version == mc_version,
@@ -111,7 +111,7 @@ def export_mods(mc_version: str = Query(...), db: Session = Depends(get_db)):
         if not res:
             raise HTTPException(
                 status_code=400, 
-                detail=f"Mod {mod.slug} is not compatible with {mc_version} yet. Export only allowed for fully compatible versions."
+                detail=f"Server-side mod {mod.slug} is not compatible with {mc_version} yet. Export only allowed when all server/both mods are compatible."
             )
         
         version_id = f":{res.mod_version_id}" if res.mod_version_id else ""
