@@ -577,28 +577,28 @@
                     <div class="panel-title">📝 Add Mod to Track</div>
 
                     <div class="form-group">
-                        <label>Mod Loader</label>
-                        <select id="modLoader">
-                            <option value="fabric">Fabric</option>
-                            <option value="forge">Forge</option>
-                            <option value="quilt">Quilt</option>
-                            <option value="neoforge">NeoForge</option>
-                            <option value="liteloader">LiteLoader</option>
-                        </select>
-                    </div>
-
-                    <div class="form-group">
                         <label>Mod Slug (from Modrinth)</label>
                         <input type="text" id="modSlug" placeholder="e.g., sodium, lithium, iris">
                     </div>
 
-                    <div class="form-group">
-                        <label>Mod Type</label>
-                        <select id="modSide">
-                            <option value="both">Both (Client + Server)</option>
-                            <option value="client">Client Only</option>
-                            <option value="server">Server Only</option>
-                        </select>
+                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px;">
+                        <div class="form-group">
+                            <label>Preferred Type</label>
+                            <select id="modSide">
+                                <option value="both">Both (Client + Server)</option>
+                                <option value="client">Client Only</option>
+                                <option value="server">Server Only</option>
+                            </select>
+                        </div>
+
+                        <div class="form-group">
+                            <label>Stability Channel</label>
+                            <select id="modChannel">
+                                <option value="release">Stable Releases Only</option>
+                                <option value="beta">Include Beta Versions</option>
+                                <option value="alpha">Include Alpha Versions</option>
+                            </select>
+                        </div>
                     </div>
 
                     <button class="btn btn-primary" onclick="addMod()">➕ Add Mod</button>
@@ -617,9 +617,27 @@
                 <div id="versions" class="tab-content">
                     <div class="panel-title">🔧 Manage Minecraft Versions</div>
 
-                    <div class="form-group">
-                        <label>Minecraft Version (e.g., 1.21.1)</label>
-                        <input type="text" id="newVersion" placeholder="1.21.1">
+                    <div style="display: grid; grid-template-columns: 2fr 1fr 1fr; gap: 10px;">
+                        <div class="form-group">
+                            <label>Version (e.g., 1.21.1)</label>
+                            <input type="text" id="newVersion" placeholder="1.21.1">
+                        </div>
+                        <div class="form-group">
+                            <label>Loader</label>
+                            <select id="versionLoader">
+                                <option value="fabric">Fabric</option>
+                                <option value="forge">Forge</option>
+                                <option value="quilt">Quilt</option>
+                                <option value="neoforge">NeoForge</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label>Type</label>
+                            <select id="versionType">
+                                <option value="release">Release</option>
+                                <option value="snapshot">Snapshot</option>
+                            </select>
+                        </div>
                     </div>
 
                     <div class="form-group">
@@ -716,7 +734,9 @@
         let results = [];
         let logs = [];
         let currentVersion = null;
+        let currentLoader = null;
         let latestOfficialVersion = null;
+        let latestOfficialLoader = null;
 
         async function loadInitialData() {
             try {
@@ -724,9 +744,7 @@
                 const versionsRes = await fetch(`${API_BASE}/versions`);
                 versions = await versionsRes.json();
 
-                // Sort versions desc by release time if available, or just assumption
-                // The API returns ordered by version string, we should probably sort by release_time or just rely on backend
-                // Let's sort client side to be sure for display
+                // Sort versions desc by release time
                 versions.sort((a, b) => {
                     const tA = new Date(a.release_time || 0);
                     const tB = new Date(b.release_time || 0);
@@ -736,27 +754,32 @@
                 const latestOfficial = versions.find(v => v.type === 'release');
                 if (latestOfficial) {
                     latestOfficialVersion = latestOfficial.version;
-                    document.getElementById('latestOfficialVersion').innerHTML = latestOfficialVersion;
+                    latestOfficialLoader = latestOfficial.loader;
+                    document.getElementById('latestOfficialVersion').innerHTML = `${latestOfficialVersion} (${latestOfficialLoader})`;
                 }
 
                 // Populate filter dropdown
                 const filterSelect = document.getElementById('resultVersionFilter');
                 const currentFilter = filterSelect.value;
                 filterSelect.innerHTML = '<option value="">All Versions</option>' +
-                    versions.map(v => `<option value="${v.version}">${v.version}${v.is_current ? ' (Current)' : ''}</option>`).join('');
+                    versions.map(v => `<option value="${v.version}|${v.loader}">${v.version} (${v.loader})${v.is_current ? ' [Current]' : ''}</option>`).join('');
                 filterSelect.value = currentFilter;
 
                 // Load current version
                 const currentRes = await fetch(`${API_BASE}/versions/current`);
                 const currentData = await currentRes.json();
-                currentVersion = currentData.version;
+
+                if (currentData && currentData.version) {
+                    currentVersion = currentData.version;
+                    currentLoader = currentData.loader;
+                    document.getElementById('currentVersion').innerHTML = `${currentVersion} (${currentLoader})`;
+                } else {
+                    currentVersion = null;
+                    currentLoader = null;
+                    document.getElementById('currentVersion').innerHTML = 'Not Set';
+                }
 
                 renderVersions();
-                if (!currentVersion) {
-                    document.getElementById('currentVersion').innerHTML = 'Not Set';
-                } else {
-                    document.getElementById('currentVersion').innerHTML = currentVersion;
-                }
 
                 // Load mods
                 const modsRes = await fetch(`${API_BASE}/mods`);
@@ -787,6 +810,8 @@
 
         async function addVersion() {
             const versionStr = document.getElementById('newVersion').value.trim();
+            const loader = document.getElementById('versionLoader').value;
+            const type = document.getElementById('versionType').value;
             const isCurrent = document.getElementById('setAsCurrent').checked;
 
             if (!versionStr) {
@@ -795,12 +820,10 @@
             }
 
             try {
-                // If the user manually adds a version, we post it. 
-                // The backend syncs usually, but manual add is fine.
                 const res = await fetch(`${API_BASE}/versions`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ version: versionStr, is_current: isCurrent })
+                    body: JSON.stringify({ version: versionStr, loader, type, is_current: isCurrent })
                 });
 
                 if (!res.ok) {
@@ -809,7 +832,7 @@
                 }
 
                 showToast('Version added. Refreshing...', 'success');
-                loadInitialData(); // Re-fetch all to get correct sort/times
+                loadInitialData();
                 document.getElementById('newVersion').value = '';
                 document.getElementById('setAsCurrent').checked = false;
 
@@ -837,14 +860,14 @@
                     <div class="version-info-text">
                         <div class="mod-name">${v.version}</div>
                         <div class="mod-side">
-                           ${v.type || 'custom'} • ${formatDate(v.release_time) || 'Unknown date'}
+                           ${v.loader.toUpperCase()} • ${v.type || 'release'} • ${formatDate(v.release_time) || 'Unknown date'}
                         </div>
                         ${v.is_current ? '<span class="badge badge-current">🎯 Current</span>' : ''}
                     </div>
     
                     <div class="version-actions">
                         ${!v.is_current ? `<button class="btn btn-secondary btn-sm" onclick="setCurrentVersion(${v.id})">Set Current</button>` : ''}
-                        ${!v.is_current ? `<button class="btn btn-secondary btn-sm" onclick="deleteVersion(${v.id})">Delete</button>` : ''}
+                        <button class="btn btn-secondary btn-sm" onclick="deleteVersion(${v.id})">Delete</button>
                     </div>
                 </div>
             `).join('');
@@ -852,10 +875,15 @@
 
         async function fetchResults() {
             try {
-                const mcFilter = document.getElementById('resultVersionFilter').value;
+                const mcFilterVal = document.getElementById('resultVersionFilter').value;
                 const sideFilter = document.getElementById('resultSideFilter').value;
                 const url = new URL(`${window.location.origin}${API_BASE}/results`);
-                if (mcFilter) url.searchParams.append('mc_version', mcFilter);
+
+                if (mcFilterVal) {
+                    const [version, loader] = mcFilterVal.split('|');
+                    url.searchParams.append('mc_version', version);
+                    url.searchParams.append('loader', loader);
+                }
                 if (sideFilter) url.searchParams.append('side', sideFilter);
 
                 const res = await fetch(url.toString());
@@ -950,26 +978,19 @@
 
         async function addMod() {
             const slug = document.getElementById('modSlug').value.trim();
-            const loader = document.getElementById('modLoader').value;
             const side = document.getElementById('modSide').value;
+            const channel = document.getElementById('modChannel').value;
 
             if (!slug) {
                 showToast('Please enter a mod slug', 'error');
                 return;
             }
 
-            /*
-            if (!currentVersion) {
-                showToast('Please set a current Minecraft version first', 'error');
-                return;
-            }
-            */
-
             try {
                 const res = await fetch(`${API_BASE}/mods`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ slug, mc_version: currentVersion, loader, side })
+                    body: JSON.stringify({ slug, side, channel })
                 });
 
                 if (!res.ok) {
@@ -988,9 +1009,9 @@
             }
         }
 
-        async function updateModSide(modId, side) {
+        async function updateModSide(slug, side) {
             try {
-                const res = await fetch(`${API_BASE}/mods/${modId}/side`, {
+                const res = await fetch(`${API_BASE}/mods/${slug}/side`, {
                     method: 'PATCH',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ side })
@@ -1003,7 +1024,7 @@
 
                 showToast('Mod side updated', 'success');
                 // Update local state
-                const mod = mods.find(m => m.id === modId);
+                const mod = mods.find(m => m.slug === slug);
                 if (mod) mod.side = side;
 
                 // Trigger results refresh since side changed
@@ -1016,11 +1037,36 @@
             }
         }
 
-        async function removeMod(modId) {
+        async function updateModChannel(slug, channel) {
             try {
-                const res = await fetch(`${API_BASE}/mods/${modId}`, { method: 'DELETE' });
+                const res = await fetch(`${API_BASE}/mods/${slug}/channel`, {
+                    method: 'PATCH',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ channel })
+                });
+
+                if (!res.ok) {
+                    const error = await res.json();
+                    throw new Error(error.detail || 'Failed to update channel');
+                }
+
+                showToast('Mod channel updated', 'success');
+                const mod = mods.find(m => m.slug === slug);
+                if (mod) mod.channel = channel;
+
+                fetchResults();
+                updateStats();
+            } catch (error) {
+                showToast(error.message, 'error');
+                renderMods();
+            }
+        }
+
+        async function removeMod(slug) {
+            try {
+                const res = await fetch(`${API_BASE}/mods/${slug}`, { method: 'DELETE' });
                 if (res.ok) {
-                    mods = mods.filter(m => m.id !== modId);
+                    mods = mods.filter(m => m.slug !== slug);
                     renderMods();
                     updateStats();
                     showToast('Mod removed', 'success');
@@ -1028,17 +1074,6 @@
             } catch (error) {
                 showToast('Failed to remove mod', 'error');
             }
-        }
-
-        function getLoaderBadgeClass(loader) {
-            const badgeMap = {
-                'fabric': 'badge-fabric',
-                'forge': 'badge-forge',
-                'quilt': 'badge-quilt',
-                'neoforge': 'badge-neoforge',
-                'liteloader': 'badge-client'
-            };
-            return badgeMap[loader] || 'badge-client';
         }
 
         function renderMods() {
@@ -1061,24 +1096,25 @@
                 <div class="mod-item">
                     <div class="mod-info">
                         <div class="mod-name">${mod.slug}</div>
-                        <div class="mod-side">MC ${mod.mc_version || 'Any'} • ${mod.loader}</div>
-                        <div class="mod-slug" style="margin-top: 8px; display: flex; flex-wrap: wrap; gap: 5px; align-items: center;">
-                            <select onchange="updateModSide(${mod.id}, this.value)" style="width: auto; padding: 2px 5px; font-size: 11px; height: 24px; background: var(--bg-light);">
+                        <div class="mod-side" style="margin-top: 5px;">
+                            <select onchange="updateModSide('${mod.slug}', this.value)" style="width: auto; padding: 2px 5px; font-size: 11px; height: 24px; background: var(--bg-light); margin-right: 5px;">
                                 <option value="both" ${mod.side === 'both' ? 'selected' : ''} ${(!canBeClient || !canBeServer) ? 'disabled' : ''}>🖥️ Both</option>
                                 <option value="client" ${mod.side === 'client' ? 'selected' : ''} ${!canBeClient ? 'disabled' : ''}>👤 Client Only</option>
                                 <option value="server" ${mod.side === 'server' ? 'selected' : ''} ${!canBeServer ? 'disabled' : ''}>🖧 Server Only</option>
                             </select>
-                            <span class="badge ${getLoaderBadgeClass(mod.loader)}">
-                                ${mod.loader.toUpperCase()}
-                            </span>
+                            <select onchange="updateModChannel('${mod.slug}', this.value)" style="width: auto; padding: 2px 5px; font-size: 11px; height: 24px; background: var(--bg-light);">
+                                <option value="release" ${mod.channel === 'release' ? 'selected' : ''}>📦 Stable</option>
+                                <option value="beta" ${mod.channel === 'beta' ? 'selected' : ''}>🧪 Beta</option>
+                                <option value="alpha" ${mod.channel === 'alpha' ? 'selected' : ''}>⚠️ Alpha</option>
+                            </select>
                         </div>
-                        <div style="font-size: 10px; color: var(--text-secondary); margin-top: 4px;">
+                        <div style="font-size: 10px; color: var(--text-secondary); margin-top: 6px;">
                             Supports: ${canBeClient ? 'Client' : '<span style="color:var(--error)">No Client</span>'} | 
                             ${canBeServer ? 'Server' : '<span style="color:var(--error)">No Server</span>'}
                         </div>
                     </div>
                     <div class="mod-actions">
-                        <button class="btn btn-secondary btn-sm" onclick="removeMod(${mod.id})">Remove</button>
+                        <button class="btn btn-secondary btn-sm" onclick="removeMod('${mod.slug}')">Remove</button>
                     </div>
                 </div>
             `}).join('');
@@ -1110,14 +1146,14 @@
             document.getElementById('compatCount').innerHTML = `${compatible} / ${total}`;
 
             // Fetch summaries for badges
-            const updateBadge = (version, elementId) => {
+            const updateBadge = (version, loader, elementId) => {
                 const el = document.getElementById(elementId);
                 if (!version) {
                     el.innerHTML = '';
                     return;
                 }
 
-                fetch(`${API_BASE}/results/summary?mc_version=${version}`)
+                fetch(`${API_BASE}/results/summary?mc_version=${version}&loader=${loader}`)
                     .then(res => res.json())
                     .then(data => {
                         const createBadgeSummary = (label, compatible, total, emoji, side) => {
@@ -1138,7 +1174,7 @@
                                 <div style="display: flex; justify-content: space-between; align-items: center; cursor: pointer; padding: 2px 4px; border-radius: 4px; transition: background 0.2s;" 
                                      onmouseover="this.style.background='rgba(255,255,255,0.05)'" 
                                      onmouseout="this.style.background='transparent'"
-                                     onclick="event.stopPropagation(); onBadgeClick('${version}', '${side}')">
+                                     onclick="event.stopPropagation(); onBadgeClick('${version}|${loader}', '${side}')">
                                     <span style="font-size: 11px; color: var(--text-secondary);">${emoji} ${label}</span>
                                     <span class="badge ${badgeClass}">${compatible} / ${total} ${statusEmoji}</span>
                                 </div>
@@ -1153,14 +1189,14 @@
                     .catch(e => console.error('Failed to update badge stats', e));
             };
 
-            await updateBadge(currentVersion, 'currentVersionSummary');
-            await updateBadge(latestOfficialVersion, 'latestOfficialSummary');
+            if (currentVersion) await updateBadge(currentVersion, currentLoader, 'currentVersionSummary');
+            if (latestOfficialVersion) await updateBadge(latestOfficialVersion, latestOfficialLoader, 'latestOfficialSummary');
         }
 
-        function onBadgeClick(version, side = '') {
-            if (!version || version === 'Checking...' || version === 'Not Set') return;
+        function onBadgeClick(versionAndLoader, side = '') {
+            if (!versionAndLoader || versionAndLoader.includes('Checking...') || versionAndLoader.includes('Not Set')) return;
 
-            document.getElementById('resultVersionFilter').value = version;
+            document.getElementById('resultVersionFilter').value = versionAndLoader;
             document.getElementById('resultSideFilter').value = side;
 
             switchTab('results');
@@ -1192,13 +1228,13 @@
 
             for (const v of versions) {
                 try {
-                    const res = await fetch(`${API_BASE}/results/summary?mc_version=${v.version}`);
+                    const res = await fetch(`${API_BASE}/results/summary?mc_version=${v.version}&loader=${v.loader}`);
                     const summary = await res.json();
 
                     // Only check server-side compatibility (server + both mods)
                     // Client-side only mods don't matter for server exports
                     if (summary.server_total > 0 && summary.server_compatible === summary.server_total) {
-                        compatibleVersions.push(v.version);
+                        compatibleVersions.push({ version: v.version, loader: v.loader });
                     }
                 } catch (e) {
                     console.error('Failed to get summary for', v.version, e);
@@ -1209,20 +1245,22 @@
                 select.innerHTML = '<option value="">No versions with all server mods compatible</option>';
             } else {
                 select.innerHTML = compatibleVersions.map(v =>
-                    `<option value="${v}" ${v === currentSelected ? 'selected' : ''}>${v}</option>`
+                    `<option value="${v.version}|${v.loader}" ${v.version === currentSelected ? 'selected' : ''}>${v.version} (${v.loader})</option>`
                 ).join('');
             }
         }
 
         async function exportMods() {
-            const selectedVersion = document.getElementById('exportVersionSelect').value;
-            if (!selectedVersion) {
+            const selectedVal = document.getElementById('exportVersionSelect').value;
+            if (!selectedVal) {
                 showToast('Please select a compatible version to export', 'error');
                 return;
             }
 
+            const [version, loader] = selectedVal.split('|');
+
             try {
-                const res = await fetch(`${API_BASE}/mods/export?mc_version=${encodeURIComponent(selectedVersion)}`);
+                const res = await fetch(`${API_BASE}/mods/export?mc_version=${encodeURIComponent(version)}&loader=${encodeURIComponent(loader)}`);
                 if (!res.ok) {
                     const error = await res.json();
                     throw new Error(error.detail || 'Export failed');

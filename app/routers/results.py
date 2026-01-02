@@ -4,7 +4,7 @@ from typing import List, Optional
 from sqlalchemy import func
 
 from app.core.database import get_db
-from app.models.all import CompatibilityResult, LogEntry, MCVersion, Mod
+from app.models.all import CompatibilityResult, LogEntry, MCVersion, TrackedMod, ModVersion
 from app.schemas.all import ResultResponse, LogResponse, SummaryResponse, StatusResponse
 from datetime import timedelta, timezone
 
@@ -28,71 +28,109 @@ def get_status(db: Session = Depends(get_db)):
 @router.get("/api/results", response_model=List[ResultResponse])
 def get_results(
     mc_version: Optional[str] = Query(None),
+    loader: Optional[str] = Query(None),
     side: Optional[str] = Query(None),
     db: Session = Depends(get_db)
 ):
     """Get compatibility check results with filtering and sorting"""
-    query = db.query(CompatibilityResult).join(
-        MCVersion, CompatibilityResult.mc_version == MCVersion.version, isouter=True
+    query = db.query(
+        CompatibilityResult,
+        ModVersion,
+        MCVersion,
+        TrackedMod
     ).join(
-        Mod, (CompatibilityResult.mod_slug == Mod.slug) & (CompatibilityResult.loader == Mod.loader)
+        ModVersion, CompatibilityResult.mod_version_id == ModVersion.id
+    ).join(
+        MCVersion, CompatibilityResult.mc_version_id == MCVersion.id
+    ).join(
+        TrackedMod, ModVersion.mod_slug == TrackedMod.slug
     )
     
     if mc_version:
-        query = query.filter(CompatibilityResult.mc_version == mc_version)
+        query = query.filter(MCVersion.version == mc_version)
+    
+    if loader:
+        query = query.filter(MCVersion.loader == loader)
     
     if side:
         if side == "both":
-            query = query.filter(Mod.side == "both")
+            query = query.filter(TrackedMod.side == "both")
         elif side == "server":
-            query = query.filter(Mod.side.in_(["server", "both"]))
+            query = query.filter(TrackedMod.side.in_(["server", "both"]))
         elif side == "client":
-            query = query.filter(Mod.side.in_(["client", "both"]))
+            query = query.filter(TrackedMod.side.in_(["client", "both"]))
 
-    # Sort by mod name (slug) ASC, then by MC version release time DESC, then by checked_at DESC
+    # Sort by mod slug ASC, then by MC version release time DESC, then by checked_at DESC
     results = query.order_by(
-        CompatibilityResult.mod_slug.asc(),
+        ModVersion.mod_slug.asc(),
         MCVersion.release_time.desc(),
         CompatibilityResult.checked_at.desc()
     ).all()
     
-    # Ensure datetimes are timezone-aware
-    for r in results:
-        if r.checked_at:
-            r.checked_at = r.checked_at.replace(tzinfo=timezone.utc)
+    # Build response with joined data
+    response = []
+    for compat_result, mod_version, mc_version, tracked_mod in results:
+        result_dict = ResultResponse(
+            id=compat_result.id,
+            mod_version_id=compat_result.mod_version_id,
+            mc_version_id=compat_result.mc_version_id,
+            status=compat_result.status,
+            error=compat_result.error,
+            checked_at=compat_result.checked_at.replace(tzinfo=timezone.utc) if compat_result.checked_at else None,
+            # Add joined data
+            mod_slug=mod_version.mod_slug,
+            mod_version_number=mod_version.version_number,
+            mc_version=mc_version.version,
+            loader=mc_version.loader
+        )
+        response.append(result_dict)
 
-    return results
+    return response
 
 @router.get("/api/results/summary", response_model=SummaryResponse)
-def get_summary(mc_version: str, db: Session = Depends(get_db)):
-    """Get compatibility summary for a specific Minecraft version"""
-    # Subquery to get max checked_at per mod/loader for this mc_version
-    subq = db.query(
-        CompatibilityResult.mod_slug,
-        CompatibilityResult.loader,
-        func.max(CompatibilityResult.checked_at).label("max_checked")
-    ).filter(CompatibilityResult.mc_version == mc_version).group_by(
-        CompatibilityResult.mod_slug,
-        CompatibilityResult.loader
-    ).subquery()
+def get_summary(mc_version: str, loader: str, db: Session = Depends(get_db)):
+    """Get compatibility summary for a specific Minecraft version and loader"""
+    # Get the MC version object
+    mc_ver_obj = db.query(MCVersion).filter_by(version=mc_version, loader=loader).first()
+    if not mc_ver_obj:
+        return SummaryResponse(
+            compatible=0, total=0, 
+            server_compatible=0, server_total=0,
+            client_compatible=0, client_total=0
+        )
     
-    latest_results = db.query(CompatibilityResult, Mod).join(
-        subq,
-        (CompatibilityResult.mod_slug == subq.c.mod_slug) & 
-        (CompatibilityResult.loader == subq.c.loader) & 
-        (CompatibilityResult.checked_at == subq.c.max_checked)
+    # Get all compatibility results for this MC version (through ModVersion)
+    results = db.query(
+        CompatibilityResult,
+        ModVersion,
+        TrackedMod
     ).join(
-        Mod, (CompatibilityResult.mod_slug == Mod.slug) & (CompatibilityResult.loader == Mod.loader)
+        ModVersion, CompatibilityResult.mod_version_id == ModVersion.id
+    ).join(
+        TrackedMod, ModVersion.mod_slug == TrackedMod.slug
+    ).filter(
+        CompatibilityResult.mc_version_id == mc_ver_obj.id
     ).all()
     
-    compatible = sum(1 for r, m in latest_results if r.status == "compatible")
-    total = len(latest_results)
+    # Group by mod_slug to get latest result per mod
+    mod_results = {}
+    for compat_result, mod_version, tracked_mod in results:
+        if tracked_mod.slug not in mod_results:
+            mod_results[tracked_mod.slug] = (compat_result, tracked_mod)
+        else:
+            # Keep the most recent check
+            existing_compat, _ = mod_results[tracked_mod.slug]
+            if compat_result.checked_at > existing_compat.checked_at:
+                mod_results[tracked_mod.slug] = (compat_result, tracked_mod)
     
-    server_compatible = sum(1 for r, m in latest_results if r.status == "compatible" and m.side in ["server", "both"])
-    server_total = sum(1 for r, m in latest_results if m.side in ["server", "both"])
+    compatible = sum(1 for compat, mod in mod_results.values() if compat.status == "compatible")
+    total = len(mod_results)
     
-    client_compatible = sum(1 for r, m in latest_results if r.status == "compatible" and m.side in ["client", "both"])
-    client_total = sum(1 for r, m in latest_results if m.side in ["client", "both"])
+    server_compatible = sum(1 for compat, mod in mod_results.values() if compat.status == "compatible" and mod.side in ["server", "both"])
+    server_total = sum(1 for compat, mod in mod_results.values() if mod.side in ["server", "both"])
+    
+    client_compatible = sum(1 for compat, mod in mod_results.values() if compat.status == "compatible" and mod.side in ["client", "both"])
+    client_total = sum(1 for compat, mod in mod_results.values() if mod.side in ["client", "both"])
     
     return SummaryResponse(
         compatible=compatible, 

@@ -4,8 +4,9 @@ from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 from app.main import app
 from app.core.database import Base, get_db
-from app.models.all import Mod, CompatibilityResult
+from app.models.all import TrackedMod, ModVersion, MCVersion, CompatibilityResult, LogEntry
 import yaml
+from datetime import datetime
 
 # Setup test database
 SQLALCHEMY_DATABASE_URL = "sqlite:///./test_export.db"
@@ -32,24 +33,43 @@ def setup_db():
 def test_export_filtering():
     db = TestingSessionLocal()
     
-    # 1. Add mods with different sides
-    mod_server = Mod(slug="mod-server", mc_version="1.20.4", loader="fabric", side="server")
-    mod_both = Mod(slug="mod-both", mc_version="1.20.4", loader="fabric", side="both")
-    mod_client = Mod(slug="mod-client", mc_version="1.20.4", loader="fabric", side="client")
+    # 1. Setup MC Version
+    mc_ver = MCVersion(version="1.20.4", loader="fabric", type="release", release_time=datetime.utcnow())
+    db.add(mc_ver)
+    db.commit()
+    
+    # 2. Add mods with different sides
+    mod_server = TrackedMod(slug="mod-server", side="server", channel="release")
+    mod_both = TrackedMod(slug="mod-both", side="both", channel="release")
+    mod_client = TrackedMod(slug="mod-client", side="client", channel="release")
     
     db.add_all([mod_server, mod_both, mod_client])
     db.commit()
 
-    # 2. Add compatibility results (only compatible ones)
-    res_server = CompatibilityResult(mod_slug="mod-server", mc_version="1.20.4", loader="fabric", status="compatible", mod_version_id="v1")
-    res_both = CompatibilityResult(mod_slug="mod-both", mc_version="1.20.4", loader="fabric", status="compatible", mod_version_id="v2")
-    res_client = CompatibilityResult(mod_slug="mod-client", mc_version="1.20.4", loader="fabric", status="compatible", mod_version_id="v3")
+    # 3. Add mod versions and compatibility results
+    for mod_slug, ver_id in [("mod-server", "v1"), ("mod-both", "v2"), ("mod-client", "v3")]:
+        mv = ModVersion(
+            mod_slug=mod_slug,
+            version_id=ver_id,
+            version_number="1.0.0",
+            mc_version_id=mc_ver.id,
+            loader="fabric",
+            channel="release"
+        )
+        db.add(mv)
+        db.flush()
+        
+        cr = CompatibilityResult(
+            mod_version_id=mv.id,
+            mc_version_id=mc_ver.id,
+            status="compatible"
+        )
+        db.add(cr)
     
-    db.add_all([res_server, res_both, res_client])
     db.commit()
 
-    # 3. Request export for 1.20.4
-    response = client.get("/api/mods/export?mc_version=1.20.4")
+    # 4. Request export for 1.20.4 (fabric)
+    response = client.get("/api/mods/export?mc_version=1.20.4&loader=fabric")
     assert response.status_code == 200
     
     data = response.json()
@@ -64,24 +84,31 @@ def test_export_filtering():
     # Verify that only server and both are present
     assert "mod-server:v1" in projects
     assert "mod-both:v2" in projects
-    assert "mod-client:v3" not in projects
+    assert "mod-client:v3" not in " ".join(projects)
     assert len(projects) == 2
 
 def test_export_no_server_mods():
     db = TestingSessionLocal()
     
+    # Setup MC Version
+    mc_ver = MCVersion(version="1.20.4", loader="fabric", type="release", release_time=datetime.utcnow())
+    db.add(mc_ver)
+    db.commit()
+    
     # Add only client mod
-    mod_client = Mod(slug="mod-client", mc_version="1.20.4", loader="fabric", side="client")
+    mod_client = TrackedMod(slug="mod-client", side="client", channel="release")
     db.add(mod_client)
     db.commit()
 
-    # Add compatibility result
-    res_client = CompatibilityResult(mod_slug="mod-client", mc_version="1.20.4", loader="fabric", status="compatible", mod_version_id="v3")
-    db.add(res_client)
+    # Add version and result
+    mv = ModVersion(mod_slug="mod-client", version_id="v3", version_number="1.0.0", mc_version_id=mc_ver.id, loader="fabric", channel="release")
+    db.add(mv)
+    db.flush()
+    db.add(CompatibilityResult(mod_version_id=mv.id, mc_version_id=mc_ver.id, status="compatible"))
     db.commit()
 
     # Request export - should fail as no server-side mods
-    response = client.get("/api/mods/export?mc_version=1.20.4")
+    response = client.get("/api/mods/export?mc_version=1.20.4&loader=fabric")
     assert response.status_code == 400
     assert "No server-side or 'both' mods found" in response.json()["detail"]
 
@@ -89,24 +116,35 @@ def test_export_with_incompatible_client_mods():
     """Test that incompatible client-side mods don't block export when server/both mods are compatible"""
     db = TestingSessionLocal()
     
+    # Setup MC Version
+    mc_ver = MCVersion(version="1.20.4", loader="fabric", type="release", release_time=datetime.utcnow())
+    db.add(mc_ver)
+    db.commit()
+    
     # 1. Add mods with different sides
-    mod_server = Mod(slug="mod-server", mc_version="1.20.4", loader="fabric", side="server")
-    mod_both = Mod(slug="mod-both", mc_version="1.20.4", loader="fabric", side="both")
-    mod_client = Mod(slug="mod-client", mc_version="1.20.4", loader="fabric", side="client")
+    mod_server = TrackedMod(slug="mod-server", side="server", channel="release")
+    mod_both = TrackedMod(slug="mod-both", side="both", channel="release")
+    mod_client = TrackedMod(slug="mod-client", side="client", channel="release")
     
     db.add_all([mod_server, mod_both, mod_client])
     db.commit()
 
-    # 2. Add compatibility results - server and both are compatible, client is NOT
-    res_server = CompatibilityResult(mod_slug="mod-server", mc_version="1.20.4", loader="fabric", status="compatible", mod_version_id="v1")
-    res_both = CompatibilityResult(mod_slug="mod-both", mc_version="1.20.4", loader="fabric", status="compatible", mod_version_id="v2")
-    res_client = CompatibilityResult(mod_slug="mod-client", mc_version="1.20.4", loader="fabric", status="incompatible")  # INCOMPATIBLE
+    # 2. Add sub-components
+    # Server/Both compatible
+    for mod_slug, ver_id in [("mod-server", "v1"), ("mod-both", "v2")]:
+        mv = ModVersion(mod_slug=mod_slug, version_id=ver_id, version_number="1.0.0", mc_version_id=mc_ver.id, loader="fabric", channel="release")
+        db.add(mv)
+        db.flush()
+        db.add(CompatibilityResult(mod_version_id=mv.id, mc_version_id=mc_ver.id, status="compatible"))
     
-    db.add_all([res_server, res_both, res_client])
+    # Client INCOMPATIBLE (no version record or status="incompatible")
+    # Actually, in our new logic, no record means incompatible, but we can have an "incompatible" status too if error
+    # Let's just not add a compatible result for client
+    
     db.commit()
 
     # 3. Request export for 1.20.4 - should SUCCEED despite incompatible client mod
-    response = client.get("/api/mods/export?mc_version=1.20.4")
+    response = client.get("/api/mods/export?mc_version=1.20.4&loader=fabric")
     assert response.status_code == 200
     
     data = response.json()
@@ -121,6 +159,5 @@ def test_export_with_incompatible_client_mods():
     # Verify that only compatible server and both mods are present
     assert "mod-server:v1" in projects
     assert "mod-both:v2" in projects
-    assert "mod-client" not in " ".join(projects)  # Client mod should not be in export at all
+    assert "mod-client" not in " ".join(projects)
     assert len(projects) == 2
-

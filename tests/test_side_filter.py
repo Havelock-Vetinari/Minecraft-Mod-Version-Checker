@@ -5,7 +5,7 @@ from app.core.database import Base, get_db
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 import os
-from app.models.all import Mod, CompatibilityResult, MCVersion
+from app.models.all import TrackedMod, ModVersion, MCVersion, CompatibilityResult, LogEntry
 from datetime import datetime
 
 # Setup test database
@@ -32,20 +32,38 @@ def setup_db():
     db = TestingSessionLocal()
     
     # Add MC Version
-    v = MCVersion(version="1.21.1", type="release", release_time=datetime.now())
+    v = MCVersion(version="1.21.1", loader="fabric", type="release", release_time=datetime.now())
     db.add(v)
+    db.commit()
+    db.refresh(v)
     
     # Add mods with different sides
-    m1 = Mod(slug="mod-both", loader="fabric", side="both")
-    m2 = Mod(slug="mod-server", loader="fabric", side="server")
-    m3 = Mod(slug="mod-client", loader="fabric", side="client")
+    m1 = TrackedMod(slug="mod-both", side="both", channel="release")
+    m2 = TrackedMod(slug="mod-server", side="server", channel="release")
+    m3 = TrackedMod(slug="mod-client", side="client", channel="release")
     db.add_all([m1, m2, m3])
+    db.commit()
     
-    # Add results
-    r1 = CompatibilityResult(mod_slug="mod-both", loader="fabric", mc_version="1.21.1", status="compatible", checked_at=datetime.now())
-    r2 = CompatibilityResult(mod_slug="mod-server", loader="fabric", mc_version="1.21.1", status="compatible", checked_at=datetime.now())
-    r3 = CompatibilityResult(mod_slug="mod-client", loader="fabric", mc_version="1.21.1", status="compatible", checked_at=datetime.now())
-    db.add_all([r1, r2, r3])
+    # Add mod versions and results
+    for mod in [m1, m2, m3]:
+        mv = ModVersion(
+            mod_slug=mod.slug,
+            version_id=f"v-{mod.slug}",
+            version_number="1.0.0",
+            mc_version_id=v.id,
+            loader="fabric",
+            channel="release"
+        )
+        db.add(mv)
+        db.flush()
+        
+        cr = CompatibilityResult(
+            mod_version_id=mv.id,
+            mc_version_id=v.id,
+            status="compatible",
+            checked_at=datetime.now()
+        )
+        db.add(cr)
     
     db.commit()
     yield

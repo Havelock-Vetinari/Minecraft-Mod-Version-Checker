@@ -21,7 +21,7 @@ def add_log(db: Session, level: str, message: str):
 @router.get("", response_model=List[VersionResponse])
 def get_versions(db: Session = Depends(get_db)):
     """Get all tracked Minecraft versions"""
-    versions = db.query(MCVersion).order_by(MCVersion.version).all()
+    versions = db.query(MCVersion).order_by(MCVersion.version, MCVersion.loader).all()
     for v in versions:
         if v.release_time:
             v.release_time = v.release_time.replace(tzinfo=timezone.utc)
@@ -29,19 +29,35 @@ def get_versions(db: Session = Depends(get_db)):
 
 @router.get("/current")
 def get_current_version(db: Session = Depends(get_db)):
-    """Get the current/primary Minecraft version"""
+    """Get the current/primary Minecraft version (first if multiple loaders)"""
     current = db.query(MCVersion).filter(MCVersion.is_current == True).first()
-    return {"version": current.version if current else None}
+    return {
+        "version": current.version if current else None,
+        "loader": current.loader if current else None
+    }
 
 @router.post("", response_model=VersionResponse)
 def add_version(data: VersionSchema, background_tasks: BackgroundTasks, db: Session = Depends(get_db)):
-    """Add a new Minecraft version"""
+    """Add a new Minecraft version with specific loader"""
+    # Check if this version+loader combo already exists
+    existing = db.query(MCVersion).filter_by(
+        version=data.version,
+        loader=data.loader
+    ).first()
+    
+    if existing:
+        raise HTTPException(
+            status_code=400, 
+            detail=f"Version {data.version} ({data.loader}) already exists"
+        )
+    
     # If setting as current, unset other current versions
     if data.is_current:
         db.query(MCVersion).update({MCVersion.is_current: False})
 
     version = MCVersion(
         version=data.version,
+        loader=data.loader,
         type=data.type,
         release_time=data.release_time,
         is_current=data.is_current
@@ -50,10 +66,10 @@ def add_version(data: VersionSchema, background_tasks: BackgroundTasks, db: Sess
     db.commit()
     db.refresh(version)
 
-    add_log(db, "INFO", f"Version {data.version} added" + (" (set as current)" if data.is_current else ""))
+    add_log(db, "INFO", f"Version {data.version} ({data.loader}) added" + (" (set as current)" if data.is_current else ""))
     
     # Schedule background enrichment and check
-    background_tasks.add_task(enrich_and_check_version_task, data.version)
+    background_tasks.add_task(enrich_and_check_version_task, data.version, data.loader)
     
     return version
 
@@ -68,8 +84,8 @@ def set_current_version(version_id: int, db: Session = Depends(get_db)):
     version.is_current = True
     db.commit()
 
-    add_log(db, "INFO", f"Current version set to {version.version}")
-    return {"version": version.version}
+    add_log(db, "INFO", f"Current version set to {version.version} ({version.loader})")
+    return {"version": version.version, "loader": version.loader}
 
 @router.delete("/{version_id}")
 def delete_version(version_id: int, db: Session = Depends(get_db)):
@@ -83,5 +99,5 @@ def delete_version(version_id: int, db: Session = Depends(get_db)):
 
     db.delete(version)
     db.commit()
-    add_log(db, "INFO", f"Version {version.version} deleted")
+    add_log(db, "INFO", f"Version {version.version} ({version.loader}) deleted")
     return {"success": True}

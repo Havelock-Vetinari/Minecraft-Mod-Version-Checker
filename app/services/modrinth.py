@@ -73,15 +73,16 @@ async def get_mod_compatible_versions(slug: str, loader: str) -> Tuple[List[str]
         logger.error(f"Modrinth API error for {slug}: {error_msg}")
         return [], error_msg
     except Exception as e:
-        error_msg = str(e)
-        logger.error(f"Failed to check mod {slug}: {error_msg}")
+        error_msg = str(e) or type(e).__name__
+        logger.error(f"Failed to check mod {slug}: {error_msg}", exc_info=True)
         return [], error_msg
 
 
-async def find_mod_version_for_mc(slug: str, loader: str, mc_version: str) -> Optional[dict]:
+async def find_mod_version_for_mc(slug: str, loader: str, mc_version: str, channel: str = "release") -> Optional[dict]:
     """
     Find the specific mod version ID and version number compatible with a given Minecraft version and loader.
-    Returns a dict with {'id': ..., 'version_number': ...} or None if not found.
+    Filters by channel: 'release' only allows releases, 'beta' allows release+beta, 'alpha' allows all.
+    Returns a dict with {'id': ..., 'version_number': ..., 'channel': ...} or None if not found.
     """
     try:
         async with httpx.AsyncClient(timeout=10) as client:
@@ -101,29 +102,39 @@ async def find_mod_version_for_mc(slug: str, loader: str, mc_version: str) -> Op
             if not isinstance(versions, list):
                 versions = [versions]
             
-            # Filter for release/stable versions
-            releases = [v for v in versions if v.get("version_type") == "release"]
+            # Filter by channel hierarchy
+            allowed_channels = {
+                "release": ["release"],
+                "beta": ["release", "beta"],
+                "alpha": ["release", "beta", "alpha"]
+            }
             
+            allowed = allowed_channels.get(channel, ["release"])
+            filtered_versions = [v for v in versions if v.get("version_type") in allowed]
+            
+            if not filtered_versions:
+                return None
+            
+            # Sort by date published (most recent first)
+            filtered_versions.sort(key=lambda x: x.get("date_published", ""), reverse=True)
+            
+            # Prefer releases over beta/alpha if available
+            releases = [v for v in filtered_versions if v.get("version_type") == "release"]
             if releases:
-                # API returns sorted by date desc by default, but to be sure sort again
-                releases.sort(key=lambda x: x.get("date_published", ""), reverse=True)
-                return {
-                    "id": releases[0]["id"],
-                    "version_number": releases[0].get("version_number")
-                }
+                best = releases[0]
+            else:
+                best = filtered_versions[0]
             
-            # Fallback to any version if no release found (e.g. beta)
-            if versions:
-                return {
-                    "id": versions[0]["id"],
-                    "version_number": versions[0].get("version_number")
-                }
+            return {
+                "id": best["id"],
+                "version_number": best.get("version_number"),
+                "channel": best.get("version_type", "release")
+            }
                 
-            return None
-            
     except Exception as e:
         logger.error(f"Failed to find version for {slug} on MC {mc_version}: {e}")
         return None
+
 
 
 async def get_mod_details(slug: str) -> Optional[dict]:

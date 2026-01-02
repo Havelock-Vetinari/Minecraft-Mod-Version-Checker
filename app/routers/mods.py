@@ -3,8 +3,8 @@ from fastapi import APIRouter, HTTPException, Depends, BackgroundTasks, Body, Qu
 from sqlalchemy.orm import Session
 from typing import List, Optional
 from app.core.database import get_db
-from app.models.all import Mod, LogEntry, MCVersion, CompatibilityResult
-from app.schemas.all import ModResponse, ModSchema
+from app.models.all import TrackedMod, LogEntry, MCVersion, ModVersion, CompatibilityResult
+from app.schemas.all import TrackedModResponse, TrackedModSchema
 from app.services.background import check_single_mod_task
 from app.services.modrinth import get_mod_details
 
@@ -26,102 +26,97 @@ def add_log(db: Session, level: str, message: str):
     db.add(log)
     db.commit()
 
-@router.get("", response_model=List[ModResponse])
+@router.get("", response_model=List[TrackedModResponse])
 def get_mods(db: Session = Depends(get_db)):
     """Get all tracked mods"""
-    mods = db.query(Mod).all()
+    mods = db.query(TrackedMod).all()
     return mods
 
-@router.post("", response_model=ModResponse)
-async def add_mod(data: ModSchema, background_tasks: BackgroundTasks, db: Session = Depends(get_db)):
+@router.post("", response_model=TrackedModResponse)
+async def add_mod(data: TrackedModSchema, background_tasks: BackgroundTasks, db: Session = Depends(get_db)):
     """Add a new mod to track"""
+    # Check if already exists
+    existing = db.query(TrackedMod).filter(TrackedMod.slug == data.slug).first()
+    if existing:
+        raise HTTPException(status_code=400, detail=f"Mod {data.slug} is already tracked")
+    
     # Fetch mod details to get supported sides
     details = await get_mod_details(data.slug)
     supported_client = details.get("client_side") if details else None
     supported_server = details.get("server_side") if details else None
 
-    mod = Mod(
+    tracked_mod = TrackedMod(
         slug=data.slug, 
-        mc_version=data.mc_version, 
-        loader=data.loader, 
         side=data.side,
+        channel=data.channel,
         supported_client_side=supported_client,
         supported_server_side=supported_server
     )
-    db.add(mod)
+    db.add(tracked_mod)
     db.commit()
-    db.refresh(mod)
+    db.refresh(tracked_mod)
 
-    add_log(db, "INFO", f"Mod {data.slug} ({data.loader}) added for tracking")
+    add_log(db, "INFO", f"Mod {data.slug} added for tracking (channel: {data.channel})")
     
     # Trigger background check
-    background_tasks.add_task(check_single_mod_task, mod.id)
+    background_tasks.add_task(check_single_mod_task, tracked_mod.slug)
     
-    return mod
+    return tracked_mod
 
-@router.delete("/{mod_id}")
-def delete_mod(mod_id: int, db: Session = Depends(get_db)):
+@router.delete("/{mod_slug}")
+def delete_mod(mod_slug: str, db: Session = Depends(get_db)):
     """Remove a mod from tracking"""
-    mod = db.query(Mod).filter(Mod.id == mod_id).first()
-    if not mod:
+    tracked_mod = db.query(TrackedMod).filter(TrackedMod.slug == mod_slug).first()
+    if not tracked_mod:
         raise HTTPException(status_code=404, detail="Mod not found")
-
-    slug = mod.slug
-    loader = mod.loader
     
-    # Delete associated compatibility results
-    db.query(CompatibilityResult).filter(
-        CompatibilityResult.mod_slug == slug,
-        CompatibilityResult.loader == loader
-    ).delete()
-    
-    db.delete(mod)
+    # Cascade delete will handle mod_versions and compatibility_results
+    db.delete(tracked_mod)
     db.commit()
 
-    add_log(db, "INFO", f"Mod {slug} removed from tracking (including compatibility results)")
+    add_log(db, "INFO", f"Mod {mod_slug} removed from tracking (including all versions and results)")
     return {"success": True}
 
 @router.get("/export")
-def export_mods(mc_version: str = Query(...), db: Session = Depends(get_db)):
-    """Export mods in docker-compose format and ensure full compatibility"""
-    # Get all tracked mods and filter by side
-    # We only include server or both sides for docker-compose export
-    all_mods = db.query(Mod).all()
-    if not all_mods:
-        raise HTTPException(status_code=400, detail="No mods tracked")
-
-    # Filter: Only include mods that are NOT purely client-side
+def export_mods(mc_version: str = Query(...), loader: str = Query(...), db: Session = Depends(get_db)):
+    """Export mods in docker-compose format ensuring full server-side compatibility"""
+    # Get the specific MC version+loader
+    mc_ver_obj = db.query(MCVersion).filter_by(version=mc_version, loader=loader).first()
+    if not mc_ver_obj:
+        raise HTTPException(status_code=404, detail=f"MC version {mc_version} ({loader}) not found")
+    
+    # Get all tracked mods that are server-side or both
+    all_mods = db.query(TrackedMod).all()
     mods_to_export = [m for m in all_mods if m.side in ["server", "both"]]
     
     if not mods_to_export:
         raise HTTPException(status_code=400, detail="No server-side or 'both' mods found to export")
 
     projects = []
-    loader_type = mods_to_export[0].loader.upper()
-
-    for mod in mods_to_export:
-        # Verify full compatibility for server/both mods being exported (client-side mods are ignored)
-        res = db.query(CompatibilityResult).filter(
-            CompatibilityResult.mod_slug == mod.slug,
-            CompatibilityResult.mc_version == mc_version,
-            CompatibilityResult.loader == mod.loader,
+    
+    for tracked_mod in mods_to_export:
+        # Find compatible mod version for this MC version
+        mod_version = db.query(ModVersion).filter_by(
+            mod_slug=tracked_mod.slug,
+            mc_version_id=mc_ver_obj.id,
+            loader=loader
+        ).join(CompatibilityResult).filter(
             CompatibilityResult.status == "compatible"
-        ).order_by(CompatibilityResult.checked_at.desc()).first()
+        ).first()
         
-        if not res:
+        if not mod_version:
             raise HTTPException(
                 status_code=400, 
-                detail=f"Server-side mod {mod.slug} is not compatible with {mc_version} yet. Export only allowed when all server/both mods are compatible."
+                detail=f"Server-side mod {tracked_mod.slug} is not compatible with {mc_version} ({loader}). Export only allowed when all server/both mods are compatible."
             )
         
-        version_id = f":{res.mod_version_id}" if res.mod_version_id else ""
-        projects.append(f"{mod.slug}{version_id}")
+        projects.append(f"{tracked_mod.slug}:{mod_version.version_id}")
 
     compose_data = {
         "services": {
             "mc": {
                 "environment": {
-                    "TYPE": loader_type,
+                    "TYPE": loader.upper(),
                     "VERSION": mc_version,
                     "MODRINTH_PROJECTS": LiteralString("\n".join(projects) + "\n")
                 }
@@ -144,7 +139,6 @@ async def import_mods(background_tasks: BackgroundTasks, db: Session = Depends(g
         mc_service = next(iter(services.values())) if services else {}
         env = mc_service.get("environment", {})
         
-        loader = env.get("TYPE", "FABRIC").lower()
         projects_str = env.get("MODRINTH_PROJECTS", "")
         
         if not projects_str:
@@ -152,36 +146,31 @@ async def import_mods(background_tasks: BackgroundTasks, db: Session = Depends(g
             
         lines = [line.strip() for line in projects_str.split("\n") if line.strip()]
         added_count = 0
-        
-        # Get current MC version if possible to set for new mods
-        current_version = db.query(MCVersion).filter(MCVersion.is_current == True).first()
-        mc_version = current_version.version if current_version else None
 
         for line in lines:
             slug = line.split(":")[0].strip()
             if not slug:
                 continue
                 
-            # Check if mod already exists for this loader
-            existing = db.query(Mod).filter(Mod.slug == slug, Mod.loader == loader).first()
+            # Check if mod already tracked
+            existing = db.query(TrackedMod).filter(TrackedMod.slug == slug).first()
             if not existing:
-                # Fetch mod details for support info and default to 'server'
+                # Fetch mod details for support info and default to 'server' side
                 details = await get_mod_details(slug)
                 supported_client = details.get("client_side") if details else None
                 supported_server = details.get("server_side") if details else None
 
-                mod = Mod(
+                tracked_mod = TrackedMod(
                     slug=slug, 
-                    mc_version=mc_version, 
-                    loader=loader, 
-                    side="server",
+                    side="server",  # Default to server for imported mods
+                    channel="release",  # Default to release channel
                     supported_client_side=supported_client,
                     supported_server_side=supported_server
                 )
-                db.add(mod)
+                db.add(tracked_mod)
                 db.commit()
-                db.refresh(mod)
-                background_tasks.add_task(check_single_mod_task, mod.id)
+                db.refresh(tracked_mod)
+                background_tasks.add_task(check_single_mod_task, tracked_mod.slug)
                 added_count += 1
                 
         add_log(db, "INFO", f"Imported {added_count} mods from YAML")
@@ -193,19 +182,37 @@ async def import_mods(background_tasks: BackgroundTasks, db: Session = Depends(g
         raise HTTPException(status_code=500, detail=f"Import failed: {str(e)}")
 
 
-@router.patch("/{mod_id}/side", response_model=ModResponse)
-def update_mod_side(mod_id: int, side: str = Body(embed=True), db: Session = Depends(get_db)):
-    """Update the side for a mod"""
-    mod = db.query(Mod).filter(Mod.id == mod_id).first()
-    if not mod:
+@router.patch("/{mod_slug}/side", response_model=TrackedModResponse)
+def update_mod_side(mod_slug: str, side: str = Body(embed=True), db: Session = Depends(get_db)):
+    """Update the side for a tracked mod"""
+    tracked_mod = db.query(TrackedMod).filter(TrackedMod.slug == mod_slug).first()
+    if not tracked_mod:
         raise HTTPException(status_code=404, detail="Mod not found")
     
     if side not in ["client", "server", "both"]:
         raise HTTPException(status_code=400, detail="Invalid side value")
     
-    mod.side = side
+    tracked_mod.side = side
     db.commit()
-    db.refresh(mod)
+    db.refresh(tracked_mod)
     
-    add_log(db, "INFO", f"Mod {mod.slug} side updated to {side}")
-    return mod
+    add_log(db, "INFO", f"Mod {tracked_mod.slug} side updated to {side}")
+    return tracked_mod
+
+
+@router.patch("/{mod_slug}/channel", response_model=TrackedModResponse)
+def update_mod_channel(mod_slug: str, channel: str = Body(embed=True), db: Session = Depends(get_db)):
+    """Update the channel for a tracked mod"""
+    tracked_mod = db.query(TrackedMod).filter(TrackedMod.slug == mod_slug).first()
+    if not tracked_mod:
+        raise HTTPException(status_code=404, detail="Mod not found")
+    
+    if channel not in ["release", "beta", "alpha"]:
+        raise HTTPException(status_code=400, detail="Invalid channel value")
+    
+    tracked_mod.channel = channel
+    db.commit()
+    db.refresh(tracked_mod)
+    
+    add_log(db, "INFO", f"Mod {tracked_mod.slug} channel updated to {channel}")
+    return tracked_mod
