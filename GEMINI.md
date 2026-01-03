@@ -23,6 +23,7 @@ The project follows a modular layered architecture to ensure separation of conce
 │       ├── versions.py      # version management
 │       ├── mods.py          # mod tracking management
 │       └── results.py       # viewing results & logs
+├── data/                    # Database files
 ├── tests/                   # Test suite (pytest)
 ├── docker-compose.yml       # Docker deployment config
 └── Dockerfile               # Container build definition
@@ -41,6 +42,15 @@ The project follows a modular layered architecture to ensure separation of conce
 ### API
 - Built with FastAPI.
 - Routers are separated by resource (Versions, Mods, Results).
+
+### Database
+- Uses SQLite with SQLAlchemy.
+- Database is stored in the `data` directory.
+
+### Configuration
+- Configuration is managed via Pydantic BaseSettings (config.py), supporting `.env` file and environment variables.
+- environment variables take precedence over `.env` file.
+- .env file take precedence over defaults in BaseSettings (config.py).
 
 ### Local Development
 
