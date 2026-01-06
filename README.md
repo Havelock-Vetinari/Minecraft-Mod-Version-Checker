@@ -1,12 +1,20 @@
 # Minecraft Mod Compatibility Checker
 
+Semi Vibecoded (An experiment to see how good is current state of AI)
+
 A simple web application to check compatibility of Minecraft mods against the latest game version using the Modrinth API.
+
+![Main page](docs/main.png)
+
+![Docker mods export](docs/export.png)
 
 ## Features
 - Fetches latest Minecraft release version automatically
 - Checks mod compatibility for specific loaders (Fabric/Forge/etc)
-- Background job updates status every 5 minutes
+- Background job updates status every 1 hour
 - Clean, responsive UI
+- Docker support
+- Docker export support for itzg/minecraft-server mods configuration
 
 ## Development Setup
 

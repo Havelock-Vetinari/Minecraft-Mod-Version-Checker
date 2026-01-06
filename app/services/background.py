@@ -294,15 +294,15 @@ async def check_all_mods():
 
 
 async def background_loop():
-    """Run background checks every 5 minutes"""
+    """Run background checks every 1 hour"""
     while True:
         try:
             await check_all_mods()
         except Exception as e:
             logger.error(f"Background loop error: {e}")
 
-        # Wait 5 minutes (300 seconds)
-        await asyncio.sleep(300)
+        # Wait 1 hour (3600 seconds)
+        await asyncio.sleep(3600)
 
 
 async def enrich_and_check_version_task(version_id: str, loader: str):
