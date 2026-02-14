@@ -841,7 +841,45 @@
             }
         }
 
-        // ... (setCurrentVersion, deleteVersion same as before) ...
+        async function setCurrentVersion(id) {
+            try {
+                const res = await fetch(`${API_BASE}/versions/${id}/set-current`, {
+                    method: 'PUT'
+                });
+
+                if (!res.ok) {
+                    const error = await res.json();
+                    throw new Error(error.detail || 'Failed to set current version');
+                }
+
+                showToast('Current version updated', 'success');
+                loadInitialData();
+            } catch (error) {
+                showToast(error.message, 'error');
+            }
+        }
+
+        async function deleteVersion(id) {
+            if (!confirm('Are you sure you want to delete this version? All associated compatibility results will be lost.')) {
+                return;
+            }
+
+            try {
+                const res = await fetch(`${API_BASE}/versions/${id}`, {
+                    method: 'DELETE'
+                });
+
+                if (!res.ok) {
+                    const error = await res.json();
+                    throw new Error(error.detail || 'Failed to delete version');
+                }
+
+                showToast('Version deleted', 'success');
+                loadInitialData();
+            } catch (error) {
+                showToast(error.message, 'error');
+            }
+        }
 
         function renderVersions() {
             const container = document.getElementById('versionsList');
