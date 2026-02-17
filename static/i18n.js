@@ -2,6 +2,11 @@ const i18n = {
     currentLang: 'en',
 
     init() {
+        // Ensure translations object exists
+        if (typeof translations === 'undefined') {
+            console.error('Translations not loaded!');
+            return;
+        }
         const savedLang = localStorage.getItem('language');
         if (savedLang && translations[savedLang]) {
             this.currentLang = savedLang;
