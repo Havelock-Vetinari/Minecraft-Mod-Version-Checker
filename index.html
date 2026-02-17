@@ -505,16 +505,56 @@
         .toast.info {
             border-left: 3px solid var(--primary);
         }
+
+        .language-selector {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            z-index: 100;
+        }
+
+        .language-selector select {
+            background: rgba(255, 255, 255, 0.1);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            color: white;
+            padding: 4px 8px;
+            font-size: 12px;
+            cursor: pointer;
+            border-radius: 4px;
+            width: auto;
+        }
+
+        .language-selector select option {
+            background: var(--bg-dark);
+            color: var(--text-primary);
+        }
+
+        @media (max-width: 768px) {
+            .language-selector {
+                top: 10px;
+                right: 10px;
+            }
+        }
     </style>
+    <script src="/static/translations.js"></script>
+    <script src="/static/i18n.js"></script>
 </head>
+
 
 <body>
     <header>
-        <div class="container">
-            <h1>🎮 Minecraft Mod Compatibility Checker</h1>
-            <p class="subtitle">Check your mod compatibility with your Minecraft server version</p>
+        <div class="container" style="position: relative;">
+            <div class="language-selector">
+                <select id="languageSelector" onchange="i18n.setLanguage(this.value)">
+                    <option value="en">English (EN)</option>
+                    <option value="pl">Polski (PL)</option>
+                </select>
+            </div>
+            <h1 data-i18n="title">🎮 Minecraft Mod Compatibility Checker</h1>
+            <p class="subtitle" data-i18n="subtitle">Check your mod compatibility with your Minecraft server version</p>
         </div>
     </header>
+
 
     <div class="container">
         <div class="status-bar">
@@ -522,8 +562,9 @@
                 onclick="onBadgeClick(currentVersion)">
                 <div class="status-icon">📦</div>
                 <div class="status-content" style="flex: 1;">
-                    <h3>Current MC Version</h3>
-                    <p id="currentVersion">Not Set</p>
+                    <h3 data-i18n="current_mc_version">Current MC Version</h3>
+                    <p id="currentVersion" data-i18n="not_set">Not Set</p>
+
                     <div id="currentVersionSummary"
                         style="margin-top: 8px; display: flex; flex-direction: column; gap: 4px;"></div>
                 </div>
@@ -532,8 +573,9 @@
                 onclick="onBadgeClick(latestOfficialVersion)">
                 <div class="status-icon">🚀</div>
                 <div class="status-content" style="flex: 1;">
-                    <h3>Latest Official</h3>
-                    <p id="latestOfficialVersion">Checking...</p>
+                    <h3 data-i18n="latest_official">Latest Official</h3>
+                    <p id="latestOfficialVersion" data-i18n="checking">Checking...</p>
+
                     <div id="latestOfficialSummary"
                         style="margin-top: 8px; display: flex; flex-direction: column; gap: 4px;"></div>
                 </div>
@@ -541,8 +583,9 @@
             <div class="status-card">
                 <div class="status-icon">⏱️</div>
                 <div class="status-content">
-                    <h3>Background Check Status</h3>
-                    <p id="lastCheckTime" style="font-size: 14px;">Last: Never</p>
+                    <h3 data-i18n="background_check_status">Background Check Status</h3>
+                    <p id="lastCheckTime" style="font-size: 14px;"></p>
+
                     <p id="nextCheckTime" style="font-size: 12px; color: var(--text-secondary); margin-top: 4px;">Next:
                         --:--:--</p>
                 </div>
@@ -550,14 +593,14 @@
             <div class="status-card">
                 <div class="status-icon">📚</div>
                 <div class="status-content">
-                    <h3>Tracked Mods</h3>
+                    <h3 data-i18n="tracked_mods">Tracked Mods</h3>
                     <p id="modsCount">0</p>
                 </div>
             </div>
             <div class="status-card">
                 <div class="status-icon">✓</div>
                 <div class="status-content">
-                    <h3>Compatible Mods</h3>
+                    <h3 data-i18n="compatible_mods">Compatible Mods</h3>
                     <p id="compatCount">0 / 0</p>
                 </div>
             </div>
@@ -566,64 +609,76 @@
         <div class="main-content">
             <div class="panel">
                 <div class="tabs">
-                    <button class="tab-btn active" onclick=" switchTab('results')">Compatibility Results</button>
-                    <button class="tab-btn" onclick="switchTab('add-mod')">Add Mod</button>
-                    <button class="tab-btn" onclick="switchTab('versions')">Manage Versions</button>
-                    <button class="tab-btn" onclick="switchTab('import-export')">Export/Import</button>
-                    <button class="tab-btn" onclick="switchTab('logs')">Background Job Logs</button>
+                    <button class="tab-btn active" onclick=" switchTab('results')"
+                        data-i18n="tabs.results">Compatibility Results</button>
+                    <button class="tab-btn" onclick="switchTab('add-mod')" data-i18n="tabs.add_mod">Add Mod</button>
+                    <button class="tab-btn" onclick="switchTab('versions')" data-i18n="tabs.versions">Manage
+                        Versions</button>
+                    <button class="tab-btn" onclick="switchTab('import-export')"
+                        data-i18n="tabs.import_export">Export/Import</button>
+                    <button class="tab-btn" onclick="switchTab('logs')" data-i18n="tabs.logs">Background Job
+                        Logs</button>
                 </div>
 
+
                 <div id="add-mod" class="tab-content">
-                    <div class="panel-title">📝 Add Mod to Track</div>
+                    <div class="panel-title" data-i18n="add_mod_panel.title">📝 Add Mod to Track</div>
 
                     <div class="form-group">
-                        <label>Mod Slug (from Modrinth)</label>
-                        <input type="text" id="modSlug" placeholder="e.g., sodium, lithium, iris">
+                        <label data-i18n="add_mod_panel.slug_label">Mod Slug (from Modrinth)</label>
+                        <input type="text" id="modSlug" data-i18n="add_mod_panel.slug_placeholder"
+                            data-i18n-attr="placeholder" placeholder="e.g., sodium, lithium, iris">
                     </div>
 
                     <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px;">
                         <div class="form-group">
-                            <label>Preferred Type</label>
+                            <label data-i18n="add_mod_panel.type_label">Preferred Type</label>
                             <select id="modSide">
-                                <option value="both">Both (Client + Server)</option>
-                                <option value="client">Client Only</option>
-                                <option value="server">Server Only</option>
+                                <option value="both" data-i18n="add_mod_panel.type_both">Both (Client + Server)</option>
+                                <option value="client" data-i18n="add_mod_panel.type_client">Client Only</option>
+                                <option value="server" data-i18n="add_mod_panel.type_server">Server Only</option>
                             </select>
                         </div>
 
                         <div class="form-group">
-                            <label>Stability Channel</label>
+                            <label data-i18n="add_mod_panel.channel_label">Stability Channel</label>
                             <select id="modChannel">
-                                <option value="release">Stable Releases Only</option>
-                                <option value="beta">Include Beta Versions</option>
-                                <option value="alpha">Include Alpha Versions</option>
+                                <option value="release" data-i18n="add_mod_panel.channel_stable">Stable Releases Only
+                                </option>
+                                <option value="beta" data-i18n="add_mod_panel.channel_beta">Include Beta Versions
+                                </option>
+                                <option value="alpha" data-i18n="add_mod_panel.channel_alpha">Include Alpha Versions
+                                </option>
                             </select>
                         </div>
                     </div>
 
-                    <button class="btn btn-primary" onclick="addMod()">➕ Add Mod</button>
+                    <button class="btn btn-primary" onclick="addMod()" data-i18n="add_mod_panel.add_btn">➕ Add
+                        Mod</button>
 
                     <div class="separator"></div>
-                    <div class="panel-title">📋 Tracked Mods</div>
+                    <div class="panel-title" data-i18n="add_mod_panel.list_title">📋 Tracked Mods</div>
 
                     <div class="mods-list" id="modsList">
                         <div class="empty-state">
                             <div class="empty-state-icon">📭</div>
-                            <p>No mods tracked yet</p>
+                            <p data-i18n="add_mod_panel.empty">No mods tracked yet</p>
                         </div>
                     </div>
                 </div>
 
+
                 <div id="versions" class="tab-content">
-                    <div class="panel-title">🔧 Manage Minecraft Versions</div>
+                    <div class="panel-title" data-i18n="manage_versions_panel.title">🔧 Manage Minecraft Versions</div>
 
                     <div style="display: grid; grid-template-columns: 2fr 1fr 1fr; gap: 10px;">
                         <div class="form-group">
-                            <label>Version (e.g., 1.21.1)</label>
-                            <input type="text" id="newVersion" placeholder="1.21.1">
+                            <label data-i18n="manage_versions_panel.version_label">Version (e.g., 1.21.1)</label>
+                            <input type="text" id="newVersion" data-i18n="manage_versions_panel.version_placeholder"
+                                data-i18n-attr="placeholder" placeholder="1.21.1">
                         </div>
                         <div class="form-group">
-                            <label>Loader</label>
+                            <label data-i18n="manage_versions_panel.loader_label">Loader</label>
                             <select id="versionLoader">
                                 <option value="fabric">Fabric</option>
                                 <option value="forge">Forge</option>
@@ -632,10 +687,11 @@
                             </select>
                         </div>
                         <div class="form-group">
-                            <label>Type</label>
+                            <label data-i18n="manage_versions_panel.type_label">Type</label>
                             <select id="versionType">
-                                <option value="release">Release</option>
-                                <option value="snapshot">Snapshot</option>
+                                <option value="release" data-i18n="manage_versions_panel.type_release">Release</option>
+                                <option value="snapshot" data-i18n="manage_versions_panel.type_snapshot">Snapshot
+                                </option>
                             </select>
                         </div>
                     </div>
@@ -643,68 +699,83 @@
                     <div class="form-group">
                         <label style="display: flex; align-items: center; cursor: pointer; margin-bottom: 15px;">
                             <input type="checkbox" id="setAsCurrent" style="width: auto; margin-right: 8px;">
-                            <span>Set as current server version</span>
+                            <span data-i18n="manage_versions_panel.set_current_label">Set as current server
+                                version</span>
                         </label>
                     </div>
 
-                    <button class="btn btn-primary" onclick="addVersion()">➕ Add Version</button>
+                    <button class="btn btn-primary" onclick="addVersion()" data-i18n="manage_versions_panel.add_btn">➕
+                        Add Version</button>
 
                     <div class="separator"></div>
-                    <div class="panel-title">📌 Version List</div>
+                    <div class="panel-title" data-i18n="manage_versions_panel.list_title">📌 Version List</div>
 
                     <div class="mods-list" id="versionsList">
                         <div class="empty-state">
                             <div class="empty-state-icon">📭</div>
-                            <p>No versions added yet</p>
+                            <p data-i18n="manage_versions_panel.empty">No versions added yet</p>
                         </div>
                     </div>
                 </div>
 
+
                 <div id="import-export" class="tab-content">
-                    <div class="panel-title">📤 Export / 📥 Import</div>
-                    <p style="font-size: 12px; color: var(--text-secondary); margin-bottom: 12px;">
+                    <div class="panel-title" data-i18n="import_export_panel.title">📤 Export / 📥 Import</div>
+                    <p style="font-size: 12px; color: var(--text-secondary); margin-bottom: 12px;"
+                        data-i18n="import_export_panel.description">
                         Manage your mod list using Docker Compose format (<code>itzg/minecraft-server</code> style).
                     </p>
 
                     <div class="form-group">
-                        <label>Select Minecraft Version for Export</label>
+                        <label data-i18n="import_export_panel.export_version_label">Select Minecraft Version for
+                            Export</label>
                         <select id="exportVersionSelect">
-                            <option value="">No compatible versions found</option>
+                            <option value="" data-i18n="import_export_panel.no_compatible_versions">No compatible
+                                versions found</option>
                         </select>
-                        <p style="font-size: 11px; color: var(--text-secondary); margin-top: 4px;">Only versions where
+                        <p style="font-size: 11px; color: var(--text-secondary); margin-top: 4px;"
+                            data-i18n="import_export_panel.export_hint">Only versions where
                             all
                             server/both mods are compatible are shown (client-only mods are ignored).</p>
                     </div>
 
                     <div class="form-group">
-                        <label>Compose YAML / MODRINTH_PROJECTS</label>
-                        <textarea id="yamlContent" placeholder="Paste your docker-compose.yml here..."></textarea>
+                        <label data-i18n="import_export_panel.yaml_label">Compose YAML / MODRINTH_PROJECTS</label>
+                        <textarea id="yamlContent" data-i18n="import_export_panel.yaml_placeholder"
+                            data-i18n-attr="placeholder" placeholder="Paste your docker-compose.yml here..."></textarea>
                     </div>
 
                     <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
-                        <button class="btn btn-secondary" onclick="exportMods()">📤 Export Current</button>
-                        <button class="btn btn-primary" onclick="importMods()">📥 Import from Above</button>
+                        <button class="btn btn-secondary" onclick="exportMods()"
+                            data-i18n="import_export_panel.export_btn">📤 Export Current</button>
+                        <button class="btn btn-primary" onclick="importMods()"
+                            data-i18n="import_export_panel.import_btn">📥 Import from Above</button>
                     </div>
                 </div>
+
 
                 <div id="results" class="tab-content active">
                     <div class="version-info-box"
                         style="display: flex; justify-content: space-between; align-items: flex-end; gap: 15px;">
                         <div style="flex: 1;">
-                            <div class="version-info-label">Filter by Minecraft Version</div>
+                            <div class="version-info-label" data-i18n="results_panel.filter_version_label">Filter by
+                                Minecraft Version</div>
                             <select id="resultVersionFilter" onchange="fetchResults()"
                                 style="background: var(--bg-dark); border: 1px solid var(--border); border-radius: 4px; padding: 6px 10px; color: var(--text-primary); font-size: 13px; width: 100%;">
-                                <option value="">All Versions</option>
+                                <option value="" data-i18n="results_panel.all_versions">All Versions</option>
                             </select>
                         </div>
                         <div style="flex: 1;">
-                            <div class="version-info-label">Filter by Mod Type</div>
+                            <div class="version-info-label" data-i18n="results_panel.filter_type_label">Filter by Mod
+                                Type</div>
                             <select id="resultSideFilter" onchange="fetchResults()"
                                 style="background: var(--bg-dark); border: 1px solid var(--border); border-radius: 4px; padding: 6px 10px; color: var(--text-primary); font-size: 13px; width: 100%;">
-                                <option value="">All Types</option>
-                                <option value="server">Server Side (Server + Both)</option>
-                                <option value="client">Client Side (Client + Both)</option>
-                                <option value="both">Both Only</option>
+                                <option value="" data-i18n="results_panel.all_types">All Types</option>
+                                <option value="server" data-i18n="results_panel.type_server">Server Side (Server + Both)
+                                </option>
+                                <option value="client" data-i18n="results_panel.type_client">Client Side (Client + Both)
+                                </option>
+                                <option value="both" data-i18n="results_panel.type_both">Both Only</option>
                             </select>
                         </div>
                     </div>
@@ -712,7 +783,7 @@
                     <div id="resultsContainer">
                         <div class="empty-state">
                             <div class="empty-state-icon">🔍</div>
-                            <p>Add mods to see compatibility results</p>
+                            <p data-i18n="results_panel.empty">Add mods to see compatibility results</p>
                         </div>
                     </div>
                 </div>
@@ -720,9 +791,11 @@
                 <div id="logs" class="tab-content">
                     <div style="background: var(--bg-dark); border-radius: 6px; padding: 12px; font-family: 'Courier New', monospace; font-size: 12px; max-height: 400px; overflow-y: auto;"
                         id="logsContainer">
-                        <div style="color: var(--text-secondary);">Waiting for background job logs...</div>
+                        <div style="color: var(--text-secondary);" data-i18n="logs_panel.waiting">Waiting for background
+                            job logs...</div>
                     </div>
                 </div>
+
             </div>
         </div>
     </div>
@@ -773,11 +846,14 @@
                     currentVersion = currentData.version;
                     currentLoader = currentData.loader;
                     document.getElementById('currentVersion').innerHTML = `${currentVersion} (${currentLoader})`;
+                    document.getElementById('currentVersion').removeAttribute('data-i18n');
                 } else {
                     currentVersion = null;
                     currentLoader = null;
-                    document.getElementById('currentVersion').innerHTML = 'Not Set';
+                    document.getElementById('currentVersion').setAttribute('data-i18n', 'not_set');
+                    i18n.updateUI();
                 }
+
 
                 renderVersions();
 
@@ -798,9 +874,10 @@
                 updateStats();
                 await loadBackgroundStatus();
             } catch (error) {
-                showToast('Failed to load initial data', 'error');
+                showToast(i18n.t('toasts.failed_load'), 'error');
                 console.error(error);
             }
+
         }
 
         function formatDate(dateStr) {
@@ -815,9 +892,10 @@
             const isCurrent = document.getElementById('setAsCurrent').checked;
 
             if (!versionStr) {
-                showToast('Please enter a version', 'error');
+                showToast(i18n.t('toasts.enter_version'), 'error');
                 return;
             }
+
 
             try {
                 const res = await fetch(`${API_BASE}/versions`, {
@@ -831,8 +909,9 @@
                     throw new Error(error.detail || 'Failed to add version');
                 }
 
-                showToast('Version added. Refreshing...', 'success');
+                showToast(i18n.t('toasts.version_added'), 'success');
                 loadInitialData();
+
                 document.getElementById('newVersion').value = '';
                 document.getElementById('setAsCurrent').checked = false;
 
@@ -852,17 +931,19 @@
                     throw new Error(error.detail || 'Failed to set current version');
                 }
 
-                showToast('Current version updated', 'success');
+                showToast(i18n.t('toasts.current_updated'), 'success');
                 loadInitialData();
+
             } catch (error) {
                 showToast(error.message, 'error');
             }
         }
 
         async function deleteVersion(id) {
-            if (!confirm('Are you sure you want to delete this version? All associated compatibility results will be lost.')) {
+            if (!confirm(i18n.t('version_item.delete_confirm'))) {
                 return;
             }
+
 
             try {
                 const res = await fetch(`${API_BASE}/versions/${id}`, {
@@ -874,8 +955,9 @@
                     throw new Error(error.detail || 'Failed to delete version');
                 }
 
-                showToast('Version deleted', 'success');
+                showToast(i18n.t('toasts.version_deleted'), 'success');
                 loadInitialData();
+
             } catch (error) {
                 showToast(error.message, 'error');
             }
@@ -887,26 +969,28 @@
                 container.innerHTML = `
                     <div class="empty-state">
                         <div class="empty-state-icon">📭</div>
-                        <p>No versions added yet</p>
+                        <p data-i18n="manage_versions_panel.empty">${i18n.t('manage_versions_panel.empty')}</p>
                     </div>
                 `;
                 return;
             }
+
 
             container.innerHTML = versions.map(v => `
                 <div class="version-item">
                     <div class="version-info-text">
                         <div class="mod-name">${v.version}</div>
                         <div class="mod-side">
-                           ${v.loader.toUpperCase()} • ${v.type || 'release'} • ${formatDate(v.release_time) || 'Unknown date'}
+                           ${v.loader.toUpperCase()} • ${v.type ? i18n.t(`manage_versions_panel.type_${v.type}`) : i18n.t('manage_versions_panel.type_release')} • ${formatDate(v.release_time) || i18n.t('version_item.unknown_date')}
                         </div>
-                        ${v.is_current ? '<span class="badge badge-current">🎯 Current</span>' : ''}
+                        ${v.is_current ? `<span class="badge badge-current">🎯 ${i18n.t('badges.current')}</span>` : ''}
                     </div>
     
                     <div class="version-actions">
-                        ${!v.is_current ? `<button class="btn btn-secondary btn-sm" onclick="setCurrentVersion(${v.id})">Set Current</button>` : ''}
-                        <button class="btn btn-secondary btn-sm" onclick="deleteVersion(${v.id})">Delete</button>
+                        ${!v.is_current ? `<button class="btn btn-secondary btn-sm" onclick="setCurrentVersion(${v.id})">${i18n.t('version_item.set_current_btn')}</button>` : ''}
+                        <button class="btn btn-secondary btn-sm" onclick="deleteVersion(${v.id})">${i18n.t('version_item.delete_btn')}</button>
                     </div>
+
                 </div>
             `).join('');
         }
@@ -938,8 +1022,9 @@
                 container.innerHTML = `
                     <div class="empty-state">
                         <div class="empty-state-icon">🔍</div>
-                        <p>No compatibility results found for selected filters.</p>
+                        <p data-i18n="results_panel.empty_filter">${i18n.t('results_panel.empty_filter')}</p>
                     </div>`;
+
                 return;
             }
 
@@ -985,15 +1070,21 @@
                     if (r.status === 'compatible') badgeClass = 'badge-success';
                     if (r.status === 'incompatible') badgeClass = 'badge-error';
 
-                    let statusText = r.status === 'compatible' ? '✓ Compatible' :
-                        r.status === 'incompatible' ? '✗ Incompatible' : '⚠️ Error';
+                    let statusText = r.status === 'compatible' ? `✓ ${i18n.t('status.compatible', { defaultValue: 'Compatible' })}` :
+                        r.status === 'incompatible' ? `✗ ${i18n.t('status.incompatible', { defaultValue: 'Incompatible' })}` : `⚠️ ${i18n.t('status.error', { defaultValue: 'Error' })}`;
+
+                    // Temporary fix for status translation if not in primary object
+                    if (r.status === 'compatible') statusText = '✓ ' + (i18n.currentLang === 'pl' ? 'Kompatybilny' : 'Compatible');
+                    if (r.status === 'incompatible') statusText = '✗ ' + (i18n.currentLang === 'pl' ? 'Niekompatybilny' : 'Incompatible');
+                    if (r.status === 'error') statusText = '⚠️ ' + (i18n.currentLang === 'pl' ? 'Błąd' : 'Error');
+
 
                     // Display both version number and ID if available
                     let versionDisplay = '';
                     if (r.mod_version_number && r.mod_version_id) {
                         versionDisplay = `${r.mod_version_number} (${r.mod_version_id})`;
                     } else {
-                        versionDisplay = r.mod_version_number || r.mod_version_id || 'Unknown';
+                        versionDisplay = r.mod_version_number || r.mod_version_id || i18n.t('results_item.unknown');
                     }
 
                     html += `
@@ -1004,8 +1095,9 @@
                             </div>
                             <span class="badge ${badgeClass}">${statusText}</span>
                         </div>
-                        ${versionDisplay !== 'Unknown' ? `<div style="font-size: 11px; color: var(--text-secondary); margin-bottom: 4px;"><strong>Mod Version:</strong> ${versionDisplay}</div>` : ''}
+                        ${versionDisplay !== i18n.t('results_item.unknown') ? `<div style="font-size: 11px; color: var(--text-secondary); margin-bottom: 4px;"><strong>${i18n.t('results_item.mod_version')}</strong> ${versionDisplay}</div>` : ''}
                         ${r.error ? `<div class="result-details" style="color:var(--error)">${r.error}</div>` : ''}
+
                      `;
                 });
                 html += `</div>`;
@@ -1020,9 +1112,10 @@
             const channel = document.getElementById('modChannel').value;
 
             if (!slug) {
-                showToast('Please enter a mod slug', 'error');
+                showToast(i18n.t('toasts.enter_slug'), 'error');
                 return;
             }
+
 
             try {
                 const res = await fetch(`${API_BASE}/mods`, {
@@ -1041,7 +1134,8 @@
                 renderMods();
                 updateStats();
                 document.getElementById('modSlug').value = '';
-                showToast('Mod added successfully', 'success');
+                showToast(i18n.t('toasts.mod_added'), 'success');
+
             } catch (error) {
                 showToast(error.message, 'error');
             }
@@ -1060,7 +1154,8 @@
                     throw new Error(error.detail || 'Failed to update side');
                 }
 
-                showToast('Mod side updated', 'success');
+                showToast(i18n.t('toasts.side_updated'), 'success');
+
                 // Update local state
                 const mod = mods.find(m => m.slug === slug);
                 if (mod) mod.side = side;
@@ -1088,7 +1183,8 @@
                     throw new Error(error.detail || 'Failed to update channel');
                 }
 
-                showToast('Mod channel updated', 'success');
+                showToast(i18n.t('toasts.channel_updated'), 'success');
+
                 const mod = mods.find(m => m.slug === slug);
                 if (mod) mod.channel = channel;
 
@@ -1107,11 +1203,12 @@
                     mods = mods.filter(m => m.slug !== slug);
                     renderMods();
                     updateStats();
-                    showToast('Mod removed', 'success');
+                    showToast(i18n.t('toasts.mod_removed'), 'success');
                 }
             } catch (error) {
-                showToast('Failed to remove mod', 'error');
+                showToast(i18n.t('toasts.failed_remove'), 'error');
             }
+
         }
 
         function renderMods() {
@@ -1120,11 +1217,12 @@
                 container.innerHTML = `
                     <div class="empty-state">
                         <div class="empty-state-icon">📭</div>
-                        <p>No mods tracked yet</p>
+                        <p data-i18n="add_mod_panel.empty">${i18n.t('add_mod_panel.empty')}</p>
                     </div>
                 `;
                 return;
             }
+
 
             container.innerHTML = mods.map(mod => {
                 const canBeClient = mod.supported_client_side !== 'unsupported';
@@ -1141,19 +1239,22 @@
                                 <option value="server" ${mod.side === 'server' ? 'selected' : ''} ${!canBeServer ? 'disabled' : ''}>🖧 Server Only</option>
                             </select>
                             <select onchange="updateModChannel('${mod.slug}', this.value)" style="width: auto; padding: 2px 5px; font-size: 11px; height: 24px; background: var(--bg-light);">
-                                <option value="release" ${mod.channel === 'release' ? 'selected' : ''}>📦 Stable</option>
-                                <option value="beta" ${mod.channel === 'beta' ? 'selected' : ''}>🧪 Beta</option>
-                                <option value="alpha" ${mod.channel === 'alpha' ? 'selected' : ''}>⚠️ Alpha</option>
+                                <option value="release" ${mod.channel === 'release' ? 'selected' : ''}>📦 ${i18n.t('add_mod_panel.channel_stable')}</option>
+                                <option value="beta" ${mod.channel === 'beta' ? 'selected' : ''}>🧪 ${i18n.t('add_mod_panel.channel_beta')}</option>
+                                <option value="alpha" ${mod.channel === 'alpha' ? 'selected' : ''}>⚠️ ${i18n.t('add_mod_panel.channel_alpha')}</option>
                             </select>
                         </div>
                         <div style="font-size: 10px; color: var(--text-secondary); margin-top: 6px;">
-                            Supports: ${canBeClient ? 'Client' : '<span style="color:var(--error)">No Client</span>'} | 
-                            ${canBeServer ? 'Server' : '<span style="color:var(--error)">No Server</span>'}
+                            ${i18n.t('mod_item.supports', {
+                    client: canBeClient ? i18n.t('badges.client') : `<span style="color:var(--error)">${i18n.t('mod_item.no_client')}</span>`,
+                    server: canBeServer ? i18n.t('badges.server') : `<span style="color:var(--error)">${i18n.t('mod_item.no_server')}</span>`
+                })}
                         </div>
                     </div>
                     <div class="mod-actions">
-                        <button class="btn btn-secondary btn-sm" onclick="removeMod('${mod.slug}')">Remove</button>
+                        <button class="btn btn-secondary btn-sm" onclick="removeMod('${mod.slug}')">${i18n.t('mod_item.remove_btn')}</button>
                     </div>
+
                 </div>
             `}).join('');
         }
@@ -1162,7 +1263,7 @@
         function renderLogs() {
             const container = document.getElementById('logsContainer');
             if (logs.length === 0) {
-                container.innerHTML = '<div style="color: var(--text-secondary);">No logs yet. Background job will start soon...</div>';
+                container.innerHTML = `<div style="color: var(--text-secondary);" data-i18n="logs_panel.no_logs">${i18n.t('logs_panel.no_logs')}</div>`;
                 return;
             }
 
@@ -1170,8 +1271,10 @@
                 const timestamp = new Date(log.created_at).toLocaleTimeString();
                 const levelColor = log.level === 'ERROR' ? 'var(--error)' :
                     log.level === 'WARNING' ? 'var(--warning)' : 'var(--primary)';
-                return `<div style="color: ${levelColor}; margin-bottom: 4px;"><strong>[${timestamp}]</strong> ${log.message}</div>`;
+                const translatedMessage = i18n.translateLog(log.message);
+                return `<div style="color: ${levelColor}; margin-bottom: 4px;"><strong>[${timestamp}]</strong> ${translatedMessage}</div>`;
             }).join('');
+
 
             container.scrollTop = container.scrollHeight;
         }
@@ -1182,6 +1285,7 @@
             const compatible = results.filter(r => r.status === 'compatible').length;
             const total = new Set(results.map(r => `${r.mod_slug}-${r.mc_version}-${r.loader}`)).size;
             document.getElementById('compatCount').innerHTML = `${compatible} / ${total}`;
+
 
             // Fetch summaries for badges
             const updateBadge = (version, loader, elementId) => {
@@ -1220,9 +1324,10 @@
                         };
 
                         el.innerHTML = `
-                            ${createBadgeSummary('Server', data.server_compatible, data.server_total, '🖧', 'server')}
-                            ${createBadgeSummary('Client', data.client_compatible, data.client_total, '👤', 'client')}
+                            ${createBadgeSummary(i18n.t('badges.server'), data.server_compatible, data.server_total, '🖧', 'server')}
+                            ${createBadgeSummary(i18n.t('badges.client'), data.client_compatible, data.client_total, '👤', 'client')}
                         `;
+
                     })
                     .catch(e => console.error('Failed to update badge stats', e));
             };
@@ -1232,7 +1337,8 @@
         }
 
         function onBadgeClick(versionAndLoader, side = '') {
-            if (!versionAndLoader || versionAndLoader.includes('Checking...') || versionAndLoader.includes('Not Set')) return;
+            if (!versionAndLoader || versionAndLoader === i18n.t('checking') || versionAndLoader === i18n.t('not_set')) return;
+
 
             document.getElementById('resultVersionFilter').value = versionAndLoader;
             document.getElementById('resultSideFilter').value = side;
@@ -1280,8 +1386,9 @@
             }
 
             if (compatibleVersions.length === 0) {
-                select.innerHTML = '<option value="">No versions with all server mods compatible</option>';
+                select.innerHTML = `<option value="" data-i18n="import_export_panel.no_compatible_versions">${i18n.t('import_export_panel.no_compatible_versions')}</option>`;
             } else {
+
                 select.innerHTML = compatibleVersions.map(v =>
                     `<option value="${v.version}|${v.loader}" ${v.version === currentSelected ? 'selected' : ''}>${v.version} (${v.loader})</option>`
                 ).join('');
@@ -1291,9 +1398,10 @@
         async function exportMods() {
             const selectedVal = document.getElementById('exportVersionSelect').value;
             if (!selectedVal) {
-                showToast('Please select a compatible version to export', 'error');
+                showToast(i18n.t('toasts.select_export_version'), 'error');
                 return;
             }
+
 
             const [version, loader] = selectedVal.split('|');
 
@@ -1310,14 +1418,15 @@
                 try {
                     if (navigator.clipboard && navigator.clipboard.writeText) {
                         await navigator.clipboard.writeText(data.yaml);
-                        showToast('Exported and copied to clipboard!', 'success');
+                        showToast(i18n.t('toasts.exported_clipboard'), 'success');
                     } else {
-                        showToast('Exported! (Clipboard not supported in this browser/context)', 'info');
+                        showToast(i18n.t('toasts.exported_no_clipboard'), 'info');
                     }
                 } catch (clipboardError) {
                     console.warn('Clipboard copy failed:', clipboardError);
-                    showToast('Exported! (Manual copy required)', 'info');
+                    showToast(i18n.t('toasts.exported_manual'), 'info');
                 }
+
             } catch (error) {
                 console.error('Export failed:', error);
                 showToast(error.message || 'Export failed', 'error');
@@ -1327,9 +1436,10 @@
         async function importMods() {
             const yaml = document.getElementById('yamlContent').value.trim();
             if (!yaml) {
-                showToast('Please paste YAML content first', 'error');
+                showToast(i18n.t('toasts.paste_yaml'), 'error');
                 return;
             }
+
 
             try {
                 const res = await fetch(`${API_BASE}/mods/import`, {
@@ -1344,8 +1454,9 @@
                 }
 
                 const result = await res.json();
-                showToast(`Successfully imported ${result.added} new mods!`, 'success');
+                showToast(i18n.t('toasts.import_success', { count: result.added }), 'success');
                 loadInitialData();
+
             } catch (error) {
                 showToast(error.message, 'error');
             }
@@ -1361,33 +1472,36 @@
                 const nextCheckEl = document.getElementById('nextCheckTime');
 
                 if (data.last_check) {
-                    lastCheckEl.innerHTML = `Last: ${formatDate(data.last_check)}`;
+                    lastCheckEl.innerHTML = i18n.t('last_check', { time: formatDate(data.last_check) });
                 } else {
-                    lastCheckEl.innerHTML = 'Last: Never';
+                    lastCheckEl.innerHTML = i18n.t('last_check', { time: i18n.t('never') });
                 }
+
 
                 if (data.next_check) {
                     const nextDate = new Date(data.next_check);
-                    nextCheckEl.innerHTML = `Next: ${nextDate.toLocaleTimeString()}`;
+                    nextCheckEl.innerHTML = i18n.t('next_check', { time: nextDate.toLocaleTimeString() });
                 } else {
-                    nextCheckEl.innerHTML = 'Next: --:--:--';
+                    nextCheckEl.innerHTML = i18n.t('next_check', { time: '--:--:--' });
                 }
+
             } catch (error) {
                 console.error('Failed to load background status', error);
             }
         }
 
         function formatDate(dateStr) {
-            if (!dateStr) return 'Never';
+            if (!dateStr) return i18n.t('never');
             const date = new Date(dateStr);
             const now = new Date();
             const diff = Math.floor((now - date) / 1000);
 
-            if (diff < 60) return 'Just now';
-            if (diff < 3600) return `${Math.floor(diff / 60)}m ago`;
-            if (diff < 86400) return `${Math.floor(diff / 3600)}h ago`;
+            if (diff < 60) return i18n.currentLang === 'pl' ? 'Przed chwilą' : 'Just now';
+            if (diff < 3600) return `${Math.floor(diff / 60)}m ${i18n.currentLang === 'pl' ? 'temu' : 'ago'}`;
+            if (diff < 86400) return `${Math.floor(diff / 3600)}h ${i18n.currentLang === 'pl' ? 'temu' : 'ago'}`;
             return date.toLocaleDateString();
         }
+
 
         function showToast(message, type = 'info') {
             const toast = document.createElement('div');
